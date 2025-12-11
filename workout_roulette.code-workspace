@@ -1,0 +1,61 @@
+{
+  "folders": [
+    {
+      "name": "Root",
+      "path": "."
+    },
+    {
+      "name": "Server",
+      "path": "./server"
+    },
+    {
+      "name": "Mobile App",
+      "path": "./mobile"
+    },
+    {
+      "name": "Admin Panel",
+      "path": "./admin"
+    }
+  ],
+  "settings": {
+    "files.exclude": {
+      "**/node_modules": true,
+      "**/.expo": true,
+      "**/build": true,
+      "**/dist": true,
+      "**/*.db": true,
+      "**/*.sqlite": true,
+      "**/*.sqlite3": true
+    },
+    "search.exclude": {
+      "**/node_modules": true,
+      "**/.expo": true,
+      "**/build": true,
+      "**/dist": true,
+      "**/package-lock.json": true
+    },
+    "editor.formatOnSave": true,
+    "editor.defaultFormatter": "esbenp.prettier-vscode",
+    "[javascript]": {
+      "editor.defaultFormatter": "esbenp.prettier-vscode"
+    },
+    "[javascriptreact]": {
+      "editor.defaultFormatter": "esbenp.prettier-vscode"
+    },
+    "[json]": {
+      "editor.defaultFormatter": "esbenp.prettier-vscode"
+    },
+    "files.associations": {
+      "*.code-workspace": "jsonc"
+    }
+  },
+  "extensions": {
+    "recommendations": [
+      "dbaeumer.vscode-eslint",
+      "esbenp.prettier-vscode",
+      "expo.vscode-expo-tools",
+      "ms-vscode.vscode-typescript-next"
+    ]
+  }
+}
+
