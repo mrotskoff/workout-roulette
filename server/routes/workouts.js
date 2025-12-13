@@ -14,10 +14,16 @@ router.post('/generate', (req, res) => {
 
   const totalTimeSeconds = totalTimeMinutes * 60;
 
+  // Normalize equipment: support both string and array, default to 'none'
+  let normalizedEquipment = equipment || 'none';
+  if (Array.isArray(normalizedEquipment) && normalizedEquipment.length === 0) {
+    normalizedEquipment = 'none';
+  }
+  
   workoutGenerator.generateWorkout(
     totalTimeSeconds,
     intensity || 'medium',
-    equipment || 'none',
+    normalizedEquipment,
     categories || null
   )
     .then(workout => {

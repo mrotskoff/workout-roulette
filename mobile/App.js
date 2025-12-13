@@ -4,6 +4,7 @@ import { createStackNavigator } from '@react-navigation/stack';
 import HomeScreen from './src/screens/HomeScreen';
 import WorkoutScreen from './src/screens/WorkoutScreen';
 import WorkoutHistoryScreen from './src/screens/WorkoutHistoryScreen';
+import ExercisesScreen from './src/screens/ExercisesScreen';
 
 const Stack = createStackNavigator();
 
@@ -25,6 +26,11 @@ export default function App() {
           name="History" 
           component={WorkoutHistoryScreen}
           options={{ title: 'Workout History' }}
+        />
+        <Stack.Screen 
+          name="Exercises" 
+          component={ExercisesScreen}
+          options={{ title: 'Exercise Database' }}
         />
       </Stack.Navigator>
     </NavigationContainer>

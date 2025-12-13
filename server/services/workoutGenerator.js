@@ -7,12 +7,27 @@ const generateWorkout = async (totalTimeSeconds, intensity, equipment, categorie
     const params = [intensity];
 
     // Filter by equipment
-    if (equipment === 'none') {
+    // Support both single string and array of equipment
+    const equipmentList = Array.isArray(equipment) ? equipment : [equipment];
+    
+    if (equipmentList.length === 1 && equipmentList[0] === 'none') {
+      // Only no-equipment exercises
       query += ' AND equipment = ?';
       params.push('none');
     } else {
-      query += ' AND (equipment = ? OR equipment = ?)';
-      params.push(equipment, 'none');
+      // Filter out 'none' from the list if other equipment is selected
+      const equipmentFilter = equipmentList.filter(e => e !== 'none');
+      
+      if (equipmentFilter.length === 0) {
+        // Fallback to none if array is empty
+        query += ' AND equipment = ?';
+        params.push('none');
+      } else {
+        // Show exercises that match any selected equipment OR require no equipment
+        const placeholders = equipmentFilter.map(() => '?').join(',');
+        query += ` AND (equipment IN (${placeholders}) OR equipment = ?)`;
+        params.push(...equipmentFilter, 'none');
+      }
     }
 
     // Filter by categories if specified

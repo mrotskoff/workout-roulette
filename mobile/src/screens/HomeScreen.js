@@ -15,7 +15,7 @@ import axios from 'axios';
 const HomeScreen = ({ navigation }) => {
   const [totalTime, setTotalTime] = useState('30');
   const [intensity, setIntensity] = useState('medium');
-  const [equipment, setEquipment] = useState('none');
+  const [equipment, setEquipment] = useState(['none']);
   const [loading, setLoading] = useState(false);
 
   const generateWorkout = async () => {
@@ -26,16 +26,33 @@ const HomeScreen = ({ navigation }) => {
 
     setLoading(true);
     try {
+      // Send equipment array to backend (backend handles both string and array)
+      // If empty, default to ['none']
+      const equipmentParam = equipment.length === 0 ? ['none'] : equipment;
+      
       const response = await axios.post(`${API_BASE_URL}/api/workouts/generate`, {
         totalTimeMinutes: parseInt(totalTime),
         intensity,
-        equipment,
+        equipment: equipmentParam,
       });
 
       navigation.navigate('Workout', { workout: response.data });
     } catch (error) {
       console.error('Error generating workout:', error);
-      Alert.alert('Error', error.response?.data?.error || 'Failed to generate workout');
+      
+      // Provide helpful error message for network errors
+      let errorMessage = 'Failed to generate workout';
+      if (error.message === 'Network Error' || error.code === 'ERR_NETWORK') {
+        errorMessage = `Network Error: Cannot connect to ${API_BASE_URL}\n\n` +
+          `Make sure:\n` +
+          `1. Backend server is running (npm run dev)\n` +
+          `2. Device and computer are on the same network\n` +
+          `3. Update LOCAL_IP in mobile/src/config.js if needed`;
+      } else if (error.response?.data?.error) {
+        errorMessage = error.response.data.error;
+      }
+      
+      Alert.alert('Error', errorMessage);
     } finally {
       setLoading(false);
     }
@@ -60,7 +77,12 @@ const HomeScreen = ({ navigation }) => {
 
         <View style={styles.section}>
           <Text style={styles.label}>Intensity</Text>
-          <View style={styles.buttonGroup}>
+          <ScrollView 
+            horizontal 
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.buttonGroupContainer}
+            style={styles.buttonGroupScroll}
+          >
             {['low', 'medium', 'high'].map((level) => (
               <TouchableOpacity
                 key={level}
@@ -78,30 +100,57 @@ const HomeScreen = ({ navigation }) => {
                 </Text>
               </TouchableOpacity>
             ))}
-          </View>
+          </ScrollView>
         </View>
 
         <View style={styles.section}>
           <Text style={styles.label}>Equipment Available</Text>
-          <View style={styles.buttonGroup}>
-            {['none', 'dumbbells', 'resistance-bands'].map((item) => (
-              <TouchableOpacity
-                key={item}
-                style={[
-                  styles.optionButton,
-                  equipment === item && styles.optionButtonActive
-                ]}
-                onPress={() => setEquipment(item)}
-              >
-                <Text style={[
-                  styles.optionText,
-                  equipment === item && styles.optionTextActive
-                ]}>
-                  {item === 'none' ? 'None' : item.charAt(0).toUpperCase() + item.slice(1).replace('-', ' ')}
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </View>
+          <ScrollView 
+            horizontal 
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.buttonGroupContainer}
+            style={styles.buttonGroupScroll}
+          >
+            {['none', 'dumbbells', 'resistance-bands'].map((item) => {
+              const isSelected = equipment.includes(item);
+              return (
+                <TouchableOpacity
+                  key={item}
+                  style={[
+                    styles.optionButton,
+                    isSelected && styles.optionButtonActive
+                  ]}
+                  onPress={() => {
+                    if (item === 'none') {
+                      // Selecting "None" clears all other selections
+                      setEquipment(['none']);
+                    } else {
+                      // Selecting other equipment removes "None" and toggles the item
+                      setEquipment(prev => {
+                        const withoutNone = prev.filter(e => e !== 'none');
+                        if (withoutNone.includes(item)) {
+                          // Deselect if already selected
+                          const newSelection = withoutNone.filter(e => e !== item);
+                          // If nothing selected, default to 'none'
+                          return newSelection.length > 0 ? newSelection : ['none'];
+                        } else {
+                          // Select the item
+                          return [...withoutNone, item];
+                        }
+                      });
+                    }
+                  }}
+                >
+                  <Text style={[
+                    styles.optionText,
+                    isSelected && styles.optionTextActive
+                  ]}>
+                    {item === 'none' ? 'None' : item.charAt(0).toUpperCase() + item.slice(1).replace('-', ' ')}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </ScrollView>
         </View>
 
         <TouchableOpacity
@@ -121,6 +170,13 @@ const HomeScreen = ({ navigation }) => {
           onPress={() => navigation.navigate('History')}
         >
           <Text style={styles.historyButtonText}>View Workout History</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={styles.exercisesButton}
+          onPress={() => navigation.navigate('Exercises')}
+        >
+          <Text style={styles.exercisesButtonText}>Manage Exercises</Text>
         </TouchableOpacity>
       </View>
     </ScrollView>
@@ -165,27 +221,31 @@ const styles = StyleSheet.create({
     padding: 15,
     fontSize: 16,
   },
-  buttonGroup: {
+  buttonGroupScroll: {
+    marginHorizontal: -4,
+  },
+  buttonGroupContainer: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 10,
+    gap: 8,
+    paddingHorizontal: 4,
   },
   optionButton: {
     backgroundColor: '#fff',
     borderWidth: 2,
     borderColor: '#ddd',
     borderRadius: 8,
-    paddingVertical: 12,
-    paddingHorizontal: 20,
-    marginRight: 10,
-    marginBottom: 10,
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+    minWidth: 80,
   },
   optionButtonActive: {
     backgroundColor: '#4CAF50',
     borderColor: '#4CAF50',
   },
   optionText: {
-    fontSize: 16,
+    fontSize: 14,
     color: '#666',
   },
   optionTextActive: {
@@ -218,6 +278,20 @@ const styles = StyleSheet.create({
   },
   historyButtonText: {
     color: '#2196F3',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  exercisesButton: {
+    backgroundColor: '#fff',
+    borderWidth: 1,
+    borderColor: '#4CAF50',
+    borderRadius: 8,
+    padding: 15,
+    alignItems: 'center',
+    marginTop: 10,
+  },
+  exercisesButtonText: {
+    color: '#4CAF50',
     fontSize: 16,
     fontWeight: '600',
   },
