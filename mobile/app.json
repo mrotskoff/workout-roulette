@@ -18,14 +18,14 @@
     "plugins": ["expo-sqlite", "expo-asset", "expo-audio"],
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.ghostrunner.workoutroulette.app"
+      "bundleIdentifier": "com.ghostrunnertech.workoutroulette.app"
     },
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#ffffff"
       },
-      "package": "com.ghostrunner.workoutroulette.app"
+      "package": "com.ghostrunnertech.workoutroulette.app"
     },
     "web": {
       "favicon": "./assets/favicon.png",
