@@ -2,13 +2,10 @@
   "name": "workout-roulette",
   "version": "1.0.0",
   "description": "Workout Roulette - Create randomized workouts from categorized exercises",
-  "main": "server/index.js",
   "scripts": {
-    "start": "node server/index.js",
-    "dev": "nodemon server/index.js",
-    "admin:dev": "cd admin && npm run dev",
     "mobile:ios": "cd mobile && npm run ios",
-    "mobile:android": "cd mobile && npm run android"
+    "mobile:android": "cd mobile && npm run android",
+    "mobile:start": "cd mobile && npm start"
   },
   "keywords": [
     "workout",
@@ -17,18 +14,5 @@
     "react-native"
   ],
   "author": "",
-  "license": "MIT",
-  "dependencies": {
-    "body-parser": "^1.20.2",
-    "cors": "^2.8.5",
-    "dotenv": "^16.3.1",
-    "expo": "^54.0.27",
-    "express": "^4.18.2",
-    "react": "19.1.0",
-    "react-native": "0.81.5",
-    "sqlite3": "^5.1.6"
-  },
-  "devDependencies": {
-    "nodemon": "^3.0.1"
-  }
+  "license": "MIT"
 }

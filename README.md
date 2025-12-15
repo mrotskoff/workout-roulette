@@ -1,32 +1,25 @@
 # Workout Roulette
 
-A mobile fitness app that generates randomized workouts based on user preferences. Users can select workout duration, intensity level, and available equipment, and the app will create a customized workout from a categorized exercise database.
+A mobile fitness app that generates randomized workouts based on user preferences. Users can select workout duration, exercise duration, rest time, and available equipment, and the app will create a customized workout from a categorized exercise database.
 
 ## Features
 
-- **Workout Generation**: Create randomized workouts based on time, intensity, and equipment preferences
-- **Exercise Database**: Categorized exercises with details (duration, calories, equipment requirements)
-- **Admin Interface**: Web-based admin panel to add, edit, and manage exercises
-- **Workout History**: Save and view previously generated workouts
-- **Mobile App**: React Native app for iOS and Android
+- **Workout Generation**: Create randomized workouts based on time, exercise duration, rest time, and equipment preferences
+- **Exercise Database**: Categorized exercises with details (duration, equipment requirements)
+- **Workout Execution**: Built-in timer with countdown for each exercise and rest periods
+- **Exercise Management**: Add, edit, and delete exercises directly in the app
+- **Mobile App**: React Native app for iOS and Android (works completely offline with local SQLite database)
 
 ## Project Structure
 
 ```
 workout-roulette/
-├── server/              # Backend API (Node.js/Express)
-│   ├── index.js        # Main server file
-│   ├── database.js     # Database setup and initialization
-│   ├── routes/         # API routes
-│   └── services/       # Business logic (workout generator)
-├── mobile/             # React Native mobile app
-│   ├── src/
-│   │   ├── screens/    # App screens
-│   │   └── config.js   # API configuration
-│   └── App.js          # Main app component
-└── admin/              # React web admin interface
-    └── src/
-        └── components/ # Admin components
+└── mobile/             # React Native mobile app (self-contained, no server required)
+    ├── src/
+    │   ├── screens/    # App screens
+    │   ├── database.js # Local SQLite database
+    │   └── services/   # Workout generation logic
+    └── App.js          # Main app component
 ```
 
 ## Setup Instructions
@@ -39,29 +32,9 @@ workout-roulette/
 - For iOS: Xcode (Mac only)
 - For Android: Android Studio
 
-### 1. Install Root Dependencies
+### 1. Mobile App Setup
 
-```bash
-npm install
-```
-
-### 2. Backend Setup
-
-The backend server uses SQLite for simplicity. No additional database setup is required.
-
-```bash
-# Start the backend server
-npm run dev
-
-# Or in production mode
-npm start
-```
-
-The server will run on `http://localhost:3000` by default.
-
-The database will be automatically created with sample exercises on first run.
-
-### 3. Mobile App Setup
+The mobile app now uses a local SQLite database and works completely offline - **no backend server required!**
 
 ```bash
 cd mobile
@@ -77,41 +50,7 @@ npm run ios
 npm run android
 ```
 
-**Important**: Update `mobile/src/config.js` with your backend server URL:
-- For Android emulator: `http://10.0.2.2:3000`
-- For iOS simulator: `http://localhost:3000`
-- For physical device: `http://YOUR_IP_ADDRESS:3000` (replace with your computer's IP)
-
-### 4. Admin Interface Setup
-
-```bash
-cd admin
-npm install
-
-# Start the admin interface
-npm start
-```
-
-The admin interface will run on `http://localhost:3001` (or next available port).
-
-## API Endpoints
-
-### Exercises
-
-- `GET /api/exercises` - Get all exercises (with optional filters: category, intensity, equipment)
-- `GET /api/exercises/:id` - Get exercise by ID
-- `POST /api/exercises` - Create new exercise
-- `PUT /api/exercises/:id` - Update exercise
-- `DELETE /api/exercises/:id` - Delete exercise
-- `GET /api/exercises/meta/categories` - Get all categories
-
-### Workouts
-
-- `POST /api/workouts/generate` - Generate a new workout
-  - Body: `{ totalTimeMinutes, intensity, equipment, categories? }`
-- `POST /api/workouts` - Save a workout
-- `GET /api/workouts` - Get workout history
-- `GET /api/workouts/:id` - Get workout by ID
+**Note**: The app uses a local SQLite database stored on your device. All data (exercises) is stored locally and persists between app sessions. The database is automatically initialized with sample exercises on first launch. **No server or internet connection is required.**
 
 ## Usage
 
@@ -120,19 +59,20 @@ The admin interface will run on `http://localhost:3001` (or next available port)
 1. Open the mobile app
 2. Select your preferences:
    - Total workout time (in minutes)
-   - Intensity level (low, medium, high)
+   - Exercise duration (in seconds)
+   - Rest time between exercises (in seconds)
    - Available equipment (none, dumbbells, resistance-bands, etc.)
 3. Tap "Generate Workout"
 4. Review your randomized workout
-5. Optionally save it to history
+5. Tap "Let's Go!" to start the workout with built-in timer
 
-### Managing Exercises (Admin)
+### Managing Exercises
 
-1. Open the admin interface in your browser
+1. Tap "Manage Exercises" on the home screen
 2. View all exercises with filtering options
-3. Click "Add New Exercise" to create exercises
-4. Click the edit icon (✏️) to modify existing exercises
-5. Click the delete icon (🗑️) to remove exercises
+3. Tap "Add Exercise" to create new exercises
+4. Tap "Edit" to modify existing exercises
+5. Tap "Delete" to remove exercises
 
 ## Exercise Categories
 
@@ -142,12 +82,6 @@ The admin interface will run on `http://localhost:3001` (or next available port)
 - **Core**: Core strengthening exercises
 - **Balance**: Balance and stability exercises
 - **General**: General exercises
-
-## Intensity Levels
-
-- **Low**: Light intensity, suitable for beginners
-- **Medium**: Moderate intensity
-- **High**: High intensity, challenging workouts
 
 ## Equipment Options
 
@@ -162,13 +96,13 @@ The admin interface will run on `http://localhost:3001` (or next available port)
 
 ### Adding New Features
 
-- Backend logic: Add routes in `server/routes/` and services in `server/services/`
 - Mobile screens: Add new screens in `mobile/src/screens/` and update navigation in `App.js`
-- Admin features: Add components in `admin/src/components/`
+- Workout generation: Modify logic in `mobile/src/services/workoutGenerator.js`
+- Database: Update schema and operations in `mobile/src/database.js`
 
 ### Database
 
-The app uses SQLite for simplicity. To use a different database (PostgreSQL, MongoDB, etc.), modify `server/database.js` accordingly.
+- **Mobile App**: Uses `expo-sqlite` for local SQLite database storage on the device. All data is stored locally and works completely offline. No server connection required.
 
 ## License
 
@@ -177,4 +111,3 @@ MIT
 ## Contributing
 
 Contributions are welcome! Please feel free to submit a Pull Request.
-

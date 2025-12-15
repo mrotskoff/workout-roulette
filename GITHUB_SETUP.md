@@ -7,16 +7,19 @@ This guide will help you create and push your Workout Roulette project to GitHub
 If you have GitHub CLI installed:
 
 1. **Login to GitHub CLI** (if not already logged in):
+
    ```powershell
    gh auth login
    ```
 
 2. **Run the setup script**:
+
    ```powershell
    .\setup-github.ps1
    ```
 
    Or specify a custom repository name:
+
    ```powershell
    .\setup-github.ps1 -RepoName "my-workout-app"
    ```
@@ -28,6 +31,7 @@ If you have GitHub CLI installed:
 If you don't have GitHub CLI installed:
 
 **Windows (using winget):**
+
 ```powershell
 winget install GitHub.cli
 ```
@@ -37,6 +41,7 @@ winget install GitHub.cli
 ## Option 2: Manual Setup
 
 1. **Create a new repository on GitHub:**
+
    - Go to https://github.com/new
    - Repository name: `workout-roulette` (or your preferred name)
    - Description: "Mobile fitness app that generates randomized workouts"
@@ -44,6 +49,7 @@ winget install GitHub.cli
    - **DO NOT** initialize with README, .gitignore, or license (we already have these)
 
 2. **Add the remote and push:**
+
    ```powershell
    git remote add origin https://github.com/YOUR_USERNAME/workout-roulette.git
    git branch -M main
@@ -72,14 +78,13 @@ Once your repository is on GitHub, you can:
 ## VS Code Workspace
 
 Open the project in VS Code using the workspace file:
+
 - Double-click `workout_roulette.code-workspace`
 - Or: File → Open Workspace from File → Select `workout_roulette.code-workspace`
 
 The workspace includes:
+
 - Root project folder
-- Server folder
 - Mobile App folder
-- Admin Panel folder
 
 All with optimized settings for development.
-

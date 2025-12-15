@@ -5,16 +5,8 @@
       "path": "."
     },
     {
-      "name": "Server",
-      "path": "./server"
-    },
-    {
       "name": "Mobile App",
       "path": "./mobile"
-    },
-    {
-      "name": "Admin Panel",
-      "path": "./admin"
     }
   ],
   "settings": {
@@ -58,4 +50,3 @@
     ]
   }
 }
-

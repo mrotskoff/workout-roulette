@@ -7,26 +7,9 @@ import {
   TouchableOpacity,
   Alert
 } from 'react-native';
-import axios from 'axios';
-import { API_BASE_URL } from '../config';
 
 const WorkoutScreen = ({ route, navigation }) => {
   const { workout } = route.params;
-
-  const saveWorkout = async () => {
-    try {
-      await axios.post(`${API_BASE_URL}/api/workouts`, {
-        total_time_seconds: workout.totalTimeSeconds,
-        intensity: workout.intensity,
-        equipment: workout.equipment,
-        exercises: workout.exercises
-      });
-      Alert.alert('Success', 'Workout saved to history!');
-    } catch (error) {
-      console.error('Error saving workout:', error);
-      Alert.alert('Error', 'Failed to save workout');
-    }
-  };
 
   return (
     <ScrollView style={styles.container}>
@@ -41,10 +24,6 @@ const WorkoutScreen = ({ route, navigation }) => {
             <Text style={styles.statValue}>{workout.exerciseCount}</Text>
             <Text style={styles.statLabel}>Exercises</Text>
           </View>
-          <View style={styles.stat}>
-            <Text style={styles.statValue}>{workout.totalCalories}</Text>
-            <Text style={styles.statLabel}>Calories</Text>
-          </View>
         </View>
       </View>
 
@@ -57,15 +36,11 @@ const WorkoutScreen = ({ route, navigation }) => {
                 <Text style={styles.exerciseName}>{exercise.name}</Text>
                 <Text style={styles.exerciseCategory}>{exercise.category}</Text>
               </View>
-              <Text style={styles.exerciseDuration}>{exercise.duration_seconds}s</Text>
             </View>
             {exercise.description && (
               <Text style={styles.exerciseDescription}>{exercise.description}</Text>
             )}
             <View style={styles.exerciseTags}>
-              <View style={styles.tag}>
-                <Text style={styles.tagText}>{exercise.intensity}</Text>
-              </View>
               <View style={styles.tag}>
                 <Text style={styles.tagText}>{exercise.equipment || 'none'}</Text>
               </View>
@@ -74,8 +49,11 @@ const WorkoutScreen = ({ route, navigation }) => {
         ))}
       </View>
 
-      <TouchableOpacity style={styles.saveButton} onPress={saveWorkout}>
-        <Text style={styles.saveButtonText}>Save Workout</Text>
+      <TouchableOpacity
+        style={styles.startButton}
+        onPress={() => navigation.navigate('WorkoutExecution', { workout })}
+      >
+        <Text style={styles.startButtonText}>Let's Go!</Text>
       </TouchableOpacity>
 
       <TouchableOpacity
@@ -190,16 +168,17 @@ const styles = StyleSheet.create({
     color: '#1976d2',
     textTransform: 'capitalize',
   },
-  saveButton: {
-    backgroundColor: '#4CAF50',
+  startButton: {
+    backgroundColor: '#2196F3',
     borderRadius: 8,
     padding: 18,
     margin: 15,
+    marginBottom: 10,
     alignItems: 'center',
   },
-  saveButtonText: {
+  startButtonText: {
     color: '#fff',
-    fontSize: 18,
+    fontSize: 20,
     fontWeight: 'bold',
   },
   newWorkoutButton: {

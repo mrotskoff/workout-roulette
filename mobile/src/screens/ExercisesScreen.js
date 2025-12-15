@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect } from "react";
 import {
   View,
   Text,
@@ -8,10 +8,16 @@ import {
   TextInput,
   Alert,
   ActivityIndicator,
-  Modal
-} from 'react-native';
-import axios from 'axios';
-import { API_BASE_URL } from '../config';
+  Modal,
+} from "react-native";
+import {
+  getExercises,
+  createExercise,
+  updateExercise,
+  deleteExercise,
+  getEquipmentOptions,
+  resetDatabase,
+} from "../database";
 
 const ExercisesScreen = ({ navigation }) => {
   const [exercises, setExercises] = useState([]);
@@ -19,31 +25,71 @@ const ExercisesScreen = ({ navigation }) => {
   const [modalVisible, setModalVisible] = useState(false);
   const [editingExercise, setEditingExercise] = useState(null);
   const [formData, setFormData] = useState({
-    name: '',
-    category: 'general',
-    description: '',
-    duration_seconds: '30',
-    intensity: 'medium',
-    equipment: 'none',
-    calories_per_minute: '5'
+    name: "",
+    category: "general",
+    description: "",
+    equipment: "none",
   });
+  const [equipmentOptions, setEquipmentOptions] = useState([
+    "none",
+    "dumbbells",
+    "kettlebells",
+    "resistance-bands",
+  ]);
 
-  const categories = ['cardio', 'strength', 'flexibility', 'core', 'balance', 'general'];
-  const intensities = ['low', 'medium', 'high'];
-  const equipmentOptions = ['none', 'dumbbells', 'resistance-bands', 'kettlebell', 'barbell', 'yoga-mat'];
+  const categories = [
+    "cardio",
+    "strength",
+    "flexibility",
+    "core",
+    "balance",
+    "general",
+  ];
 
   useEffect(() => {
     loadExercises();
+    loadEquipmentOptions();
   }, []);
 
-  const loadExercises = async () => {
+  const loadEquipmentOptions = async () => {
+    try {
+      const options = await getEquipmentOptions();
+      setEquipmentOptions(options);
+    } catch (error) {
+      console.error("Error loading equipment options:", error);
+      // Keep default options on error
+    }
+  };
+
+  const loadExercises = async (retryCount = 0) => {
     try {
       setLoading(true);
-      const response = await axios.get(`${API_BASE_URL}/api/exercises`);
-      setExercises(response.data);
+      // Add a small delay on retry to allow database to initialize
+      if (retryCount > 0) {
+        await new Promise((resolve) => setTimeout(resolve, 500));
+      }
+      const exercises = await getExercises();
+      setExercises(exercises || []);
     } catch (error) {
-      console.error('Error loading exercises:', error);
-      Alert.alert('Error', 'Failed to load exercises');
+      console.error("Error loading exercises:", error);
+      console.error("Error details:", {
+        message: error?.message,
+        stack: error?.stack,
+        name: error?.name,
+      });
+
+      // Retry once if it's the first attempt
+      if (retryCount === 0) {
+        console.log("Retrying loadExercises...");
+        return loadExercises(1);
+      }
+
+      Alert.alert(
+        "Error",
+        `Failed to load exercises: ${
+          error?.message || "Unknown error"
+        }\n\nPlease try restarting the app.`
+      );
     } finally {
       setLoading(false);
     }
@@ -52,13 +98,10 @@ const ExercisesScreen = ({ navigation }) => {
   const openAddModal = () => {
     setEditingExercise(null);
     setFormData({
-      name: '',
-      category: 'general',
-      description: '',
-      duration_seconds: '30',
-      intensity: 'medium',
-      equipment: 'none',
-      calories_per_minute: '5'
+      name: "",
+      category: "general",
+      description: "",
+      equipment: "none",
     });
     setModalVisible(true);
   };
@@ -66,20 +109,17 @@ const ExercisesScreen = ({ navigation }) => {
   const openEditModal = (exercise) => {
     setEditingExercise(exercise);
     setFormData({
-      name: exercise.name || '',
-      category: exercise.category || 'general',
-      description: exercise.description || '',
-      duration_seconds: String(exercise.duration_seconds || 30),
-      intensity: exercise.intensity || 'medium',
-      equipment: exercise.equipment || 'none',
-      calories_per_minute: String(exercise.calories_per_minute || 5)
+      name: exercise.name || "",
+      category: exercise.category || "general",
+      description: exercise.description || "",
+      equipment: exercise.equipment || "none",
     });
     setModalVisible(true);
   };
 
   const handleSave = async () => {
     if (!formData.name.trim()) {
-      Alert.alert('Error', 'Name is required');
+      Alert.alert("Error", "Name is required");
       return;
     }
 
@@ -88,48 +128,77 @@ const ExercisesScreen = ({ navigation }) => {
         name: formData.name.trim(),
         category: formData.category,
         description: formData.description.trim(),
-        duration_seconds: parseInt(formData.duration_seconds) || 30,
-        intensity: formData.intensity,
         equipment: formData.equipment,
-        calories_per_minute: parseInt(formData.calories_per_minute) || 5
       };
 
       if (editingExercise) {
-        await axios.put(`${API_BASE_URL}/api/exercises/${editingExercise.id}`, payload);
-        Alert.alert('Success', 'Exercise updated successfully');
+        await updateExercise(editingExercise.id, payload);
+        Alert.alert("Success", "Exercise updated successfully");
       } else {
-        await axios.post(`${API_BASE_URL}/api/exercises`, payload);
-        Alert.alert('Success', 'Exercise created successfully');
+        await createExercise(payload);
+        Alert.alert("Success", "Exercise created successfully");
       }
 
       setModalVisible(false);
       loadExercises();
+      loadEquipmentOptions(); // Reload equipment options in case new equipment was added
     } catch (error) {
-      console.error('Error saving exercise:', error);
-      Alert.alert('Error', error.response?.data?.error || 'Failed to save exercise');
+      console.error("Error saving exercise:", error);
+      Alert.alert(
+        "Error",
+        error.response?.data?.error || "Failed to save exercise"
+      );
     }
+  };
+
+  const handleResetDatabase = () => {
+    Alert.alert(
+      "Reset Database",
+      "This will delete all exercises and restore the default sample exercises. Are you sure?",
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Reset",
+          style: "destructive",
+          onPress: async () => {
+            try {
+              setLoading(true);
+              await resetDatabase();
+              await loadExercises();
+              await loadEquipmentOptions();
+              Alert.alert("Success", "Database reset to default exercises");
+            } catch (error) {
+              console.error("Error resetting database:", error);
+              Alert.alert("Error", "Failed to reset database");
+            } finally {
+              setLoading(false);
+            }
+          },
+        },
+      ]
+    );
   };
 
   const handleDelete = (exercise) => {
     Alert.alert(
-      'Delete Exercise',
+      "Delete Exercise",
       `Are you sure you want to delete "${exercise.name}"?`,
       [
-        { text: 'Cancel', style: 'cancel' },
+        { text: "Cancel", style: "cancel" },
         {
-          text: 'Delete',
-          style: 'destructive',
+          text: "Delete",
+          style: "destructive",
           onPress: async () => {
             try {
-              await axios.delete(`${API_BASE_URL}/api/exercises/${exercise.id}`);
-              Alert.alert('Success', 'Exercise deleted successfully');
+              await deleteExercise(exercise.id);
+              Alert.alert("Success", "Exercise deleted successfully");
               loadExercises();
             } catch (error) {
-              console.error('Error deleting exercise:', error);
-              Alert.alert('Error', 'Failed to delete exercise');
+              console.error("Error deleting exercise:", error);
+              Alert.alert("Error", "Failed to delete exercise");
             }
-          }
-        }
+          },
+        },
       ]
     );
   };
@@ -147,15 +216,25 @@ const ExercisesScreen = ({ navigation }) => {
       <ScrollView style={styles.scrollView}>
         <View style={styles.header}>
           <Text style={styles.title}>Exercise Database</Text>
-          <TouchableOpacity style={styles.addButton} onPress={openAddModal}>
-            <Text style={styles.addButtonText}>+ Add Exercise</Text>
-          </TouchableOpacity>
+          <View style={styles.buttonRow}>
+            <TouchableOpacity style={styles.addButton} onPress={openAddModal}>
+              <Text style={styles.addButtonText}>+ Add Exercise</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.resetButton}
+              onPress={handleResetDatabase}
+            >
+              <Text style={styles.resetButtonText}>Reset to Default</Text>
+            </TouchableOpacity>
+          </View>
         </View>
 
         {exercises.length === 0 ? (
           <View style={styles.emptyContainer}>
             <Text style={styles.emptyText}>No exercises found</Text>
-            <Text style={styles.emptySubtext}>Tap "+ Add Exercise" to create one</Text>
+            <Text style={styles.emptySubtext}>
+              Tap "+ Add Exercise" to create one
+            </Text>
           </View>
         ) : (
           exercises.map((exercise) => (
@@ -163,17 +242,20 @@ const ExercisesScreen = ({ navigation }) => {
               <View style={styles.exerciseHeader}>
                 <Text style={styles.exerciseName}>{exercise.name}</Text>
                 <View style={styles.badgeContainer}>
-                  <Text style={[styles.badge, styles.categoryBadge]}>{exercise.category}</Text>
-                  <Text style={[styles.badge, styles.intensityBadge]}>{exercise.intensity}</Text>
+                  <Text style={[styles.badge, styles.categoryBadge]}>
+                    {exercise.category}
+                  </Text>
                 </View>
               </View>
               {exercise.description && (
-                <Text style={styles.exerciseDescription}>{exercise.description}</Text>
+                <Text style={styles.exerciseDescription}>
+                  {exercise.description}
+                </Text>
               )}
               <View style={styles.exerciseDetails}>
-                <Text style={styles.detailText}>Duration: {exercise.duration_seconds}s</Text>
-                <Text style={styles.detailText}>Equipment: {exercise.equipment}</Text>
-                <Text style={styles.detailText}>{exercise.calories_per_minute} cal/min</Text>
+                <Text style={styles.detailText}>
+                  Equipment: {exercise.equipment}
+                </Text>
               </View>
               <View style={styles.actionButtons}>
                 <TouchableOpacity
@@ -203,7 +285,7 @@ const ExercisesScreen = ({ navigation }) => {
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
             <Text style={styles.modalTitle}>
-              {editingExercise ? 'Edit Exercise' : 'Add Exercise'}
+              {editingExercise ? "Edit Exercise" : "Add Exercise"}
             </Text>
 
             <ScrollView>
@@ -212,27 +294,37 @@ const ExercisesScreen = ({ navigation }) => {
                 <TextInput
                   style={styles.input}
                   value={formData.name}
-                  onChangeText={(text) => setFormData({ ...formData, name: text })}
+                  onChangeText={(text) =>
+                    setFormData({ ...formData, name: text })
+                  }
                   placeholder="Exercise name"
                 />
               </View>
 
               <View style={styles.formGroup}>
                 <Text style={styles.label}>Category *</Text>
-                <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.optionsContainer}>
+                <ScrollView
+                  horizontal
+                  showsHorizontalScrollIndicator={false}
+                  style={styles.optionsContainer}
+                >
                   {categories.map((cat) => (
                     <TouchableOpacity
                       key={cat}
                       style={[
                         styles.optionButton,
-                        formData.category === cat && styles.optionButtonActive
+                        formData.category === cat && styles.optionButtonActive,
                       ]}
-                      onPress={() => setFormData({ ...formData, category: cat })}
+                      onPress={() =>
+                        setFormData({ ...formData, category: cat })
+                      }
                     >
-                      <Text style={[
-                        styles.optionText,
-                        formData.category === cat && styles.optionTextActive
-                      ]}>
+                      <Text
+                        style={[
+                          styles.optionText,
+                          formData.category === cat && styles.optionTextActive,
+                        ]}
+                      >
                         {cat.charAt(0).toUpperCase() + cat.slice(1)}
                       </Text>
                     </TouchableOpacity>
@@ -245,7 +337,9 @@ const ExercisesScreen = ({ navigation }) => {
                 <TextInput
                   style={[styles.input, styles.textArea]}
                   value={formData.description}
-                  onChangeText={(text) => setFormData({ ...formData, description: text })}
+                  onChangeText={(text) =>
+                    setFormData({ ...formData, description: text })
+                  }
                   placeholder="Exercise description"
                   multiline
                   numberOfLines={3}
@@ -253,71 +347,37 @@ const ExercisesScreen = ({ navigation }) => {
               </View>
 
               <View style={styles.formGroup}>
-                <Text style={styles.label}>Duration (seconds)</Text>
-                <TextInput
-                  style={styles.input}
-                  value={formData.duration_seconds}
-                  onChangeText={(text) => setFormData({ ...formData, duration_seconds: text })}
-                  keyboardType="numeric"
-                  placeholder="30"
-                />
-              </View>
-
-              <View style={styles.formGroup}>
-                <Text style={styles.label}>Intensity</Text>
-                <View style={styles.optionsRow}>
-                  {intensities.map((int) => (
-                    <TouchableOpacity
-                      key={int}
-                      style={[
-                        styles.optionButton,
-                        formData.intensity === int && styles.optionButtonActive
-                      ]}
-                      onPress={() => setFormData({ ...formData, intensity: int })}
-                    >
-                      <Text style={[
-                        styles.optionText,
-                        formData.intensity === int && styles.optionTextActive
-                      ]}>
-                        {int.charAt(0).toUpperCase() + int.slice(1)}
-                      </Text>
-                    </TouchableOpacity>
-                  ))}
-                </View>
-              </View>
-
-              <View style={styles.formGroup}>
                 <Text style={styles.label}>Equipment</Text>
-                <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.optionsContainer}>
+                <ScrollView
+                  horizontal
+                  showsHorizontalScrollIndicator={false}
+                  style={styles.optionsContainer}
+                >
                   {equipmentOptions.map((eq) => (
                     <TouchableOpacity
                       key={eq}
                       style={[
                         styles.optionButton,
-                        formData.equipment === eq && styles.optionButtonActive
+                        formData.equipment === eq && styles.optionButtonActive,
                       ]}
-                      onPress={() => setFormData({ ...formData, equipment: eq })}
+                      onPress={() =>
+                        setFormData({ ...formData, equipment: eq })
+                      }
                     >
-                      <Text style={[
-                        styles.optionText,
-                        formData.equipment === eq && styles.optionTextActive
-                      ]}>
-                        {eq === 'none' ? 'None' : eq.charAt(0).toUpperCase() + eq.slice(1).replace('-', ' ')}
+                      <Text
+                        style={[
+                          styles.optionText,
+                          formData.equipment === eq && styles.optionTextActive,
+                        ]}
+                      >
+                        {eq === "none"
+                          ? "None"
+                          : eq.charAt(0).toUpperCase() +
+                            eq.slice(1).replace("-", " ")}
                       </Text>
                     </TouchableOpacity>
                   ))}
                 </ScrollView>
-              </View>
-
-              <View style={styles.formGroup}>
-                <Text style={styles.label}>Calories per Minute</Text>
-                <TextInput
-                  style={styles.input}
-                  value={formData.calories_per_minute}
-                  onChangeText={(text) => setFormData({ ...formData, calories_per_minute: text })}
-                  keyboardType="numeric"
-                  placeholder="5"
-                />
               </View>
             </ScrollView>
 
@@ -345,76 +405,94 @@ const ExercisesScreen = ({ navigation }) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f5f5f5',
+    backgroundColor: "#f5f5f5",
   },
   scrollView: {
     flex: 1,
   },
   centerContainer: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
   },
   header: {
     padding: 20,
-    backgroundColor: '#fff',
+    backgroundColor: "#fff",
     borderBottomWidth: 1,
-    borderBottomColor: '#ddd',
+    borderBottomColor: "#ddd",
   },
   title: {
     fontSize: 24,
-    fontWeight: 'bold',
-    color: '#333',
+    fontWeight: "bold",
+    color: "#333",
     marginBottom: 15,
   },
+  buttonRow: {
+    flexDirection: "row",
+    gap: 10,
+    marginTop: 10,
+  },
   addButton: {
-    backgroundColor: '#2196F3',
+    backgroundColor: "#2196F3",
     borderRadius: 8,
     padding: 12,
-    alignItems: 'center',
+    alignItems: "center",
+    flex: 1,
   },
   addButtonText: {
-    color: '#fff',
+    color: "#fff",
     fontSize: 16,
-    fontWeight: '600',
+    fontWeight: "600",
+  },
+  resetButton: {
+    backgroundColor: "#f44336",
+    borderRadius: 8,
+    padding: 12,
+    alignItems: "center",
+    flex: 1,
+  },
+  resetButtonText: {
+    color: "#fff",
+    fontSize: 16,
+    fontWeight: "600",
   },
   emptyContainer: {
     padding: 40,
-    alignItems: 'center',
+    alignItems: "center",
   },
   emptyText: {
     fontSize: 18,
-    color: '#666',
+    color: "#666",
     marginBottom: 8,
   },
   emptySubtext: {
     fontSize: 14,
-    color: '#999',
+    color: "#999",
   },
   exerciseCard: {
-    backgroundColor: '#fff',
+    backgroundColor: "#fff",
     margin: 15,
     marginBottom: 0,
     padding: 15,
     borderRadius: 8,
     borderWidth: 1,
-    borderColor: '#ddd',
+    borderColor: "#ddd",
   },
   exerciseHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "flex-start",
     marginBottom: 8,
   },
   exerciseName: {
     fontSize: 18,
-    fontWeight: '600',
-    color: '#333',
+    fontWeight: "600",
+    color: "#333",
     flex: 1,
     marginRight: 10,
   },
   badgeContainer: {
-    flexDirection: 'row',
+    flexDirection: "row",
     gap: 6,
   },
   badge: {
@@ -422,33 +500,29 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 12,
-    overflow: 'hidden',
+    overflow: "hidden",
   },
   categoryBadge: {
-    backgroundColor: '#E3F2FD',
-    color: '#1976D2',
-  },
-  intensityBadge: {
-    backgroundColor: '#FFF3E0',
-    color: '#F57C00',
+    backgroundColor: "#E3F2FD",
+    color: "#1976D2",
   },
   exerciseDescription: {
     fontSize: 14,
-    color: '#666',
+    color: "#666",
     marginBottom: 10,
   },
   exerciseDetails: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
+    flexDirection: "row",
+    flexWrap: "wrap",
     gap: 15,
     marginBottom: 12,
   },
   detailText: {
     fontSize: 12,
-    color: '#999',
+    color: "#999",
   },
   actionButtons: {
-    flexDirection: 'row',
+    flexDirection: "row",
     gap: 10,
     marginTop: 8,
   },
@@ -456,40 +530,40 @@ const styles = StyleSheet.create({
     flex: 1,
     padding: 10,
     borderRadius: 6,
-    alignItems: 'center',
+    alignItems: "center",
   },
   editButton: {
-    backgroundColor: '#4CAF50',
+    backgroundColor: "#4CAF50",
   },
   editButtonText: {
-    color: '#fff',
+    color: "#fff",
     fontSize: 14,
-    fontWeight: '600',
+    fontWeight: "600",
   },
   deleteButton: {
-    backgroundColor: '#f44336',
+    backgroundColor: "#f44336",
   },
   deleteButtonText: {
-    color: '#fff',
+    color: "#fff",
     fontSize: 14,
-    fontWeight: '600',
+    fontWeight: "600",
   },
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    justifyContent: 'flex-end',
+    backgroundColor: "rgba(0, 0, 0, 0.5)",
+    justifyContent: "flex-end",
   },
   modalContent: {
-    backgroundColor: '#fff',
+    backgroundColor: "#fff",
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
-    maxHeight: '90%',
+    maxHeight: "90%",
     padding: 20,
   },
   modalTitle: {
     fontSize: 22,
-    fontWeight: 'bold',
-    color: '#333',
+    fontWeight: "bold",
+    color: "#333",
     marginBottom: 20,
   },
   formGroup: {
@@ -497,83 +571,80 @@ const styles = StyleSheet.create({
   },
   label: {
     fontSize: 16,
-    fontWeight: '600',
-    color: '#333',
+    fontWeight: "600",
+    color: "#333",
     marginBottom: 8,
   },
   input: {
-    backgroundColor: '#f9f9f9',
+    backgroundColor: "#f9f9f9",
     borderWidth: 1,
-    borderColor: '#ddd',
+    borderColor: "#ddd",
     borderRadius: 8,
     padding: 12,
     fontSize: 16,
   },
   textArea: {
     height: 80,
-    textAlignVertical: 'top',
+    textAlignVertical: "top",
   },
   optionsContainer: {
     marginVertical: 5,
   },
   optionsRow: {
-    flexDirection: 'row',
+    flexDirection: "row",
     gap: 8,
   },
   optionButton: {
-    backgroundColor: '#fff',
+    backgroundColor: "#fff",
     borderWidth: 2,
-    borderColor: '#ddd',
+    borderColor: "#ddd",
     borderRadius: 8,
     paddingVertical: 8,
     paddingHorizontal: 16,
     marginRight: 8,
   },
   optionButtonActive: {
-    backgroundColor: '#4CAF50',
-    borderColor: '#4CAF50',
+    backgroundColor: "#4CAF50",
+    borderColor: "#4CAF50",
   },
   optionText: {
     fontSize: 14,
-    color: '#666',
+    color: "#666",
   },
   optionTextActive: {
-    color: '#fff',
-    fontWeight: '600',
+    color: "#fff",
+    fontWeight: "600",
   },
   modalActions: {
-    flexDirection: 'row',
+    flexDirection: "row",
     gap: 10,
     marginTop: 20,
     paddingTop: 20,
     borderTopWidth: 1,
-    borderTopColor: '#ddd',
+    borderTopColor: "#ddd",
   },
   modalButton: {
     flex: 1,
     padding: 15,
     borderRadius: 8,
-    alignItems: 'center',
+    alignItems: "center",
   },
   cancelButton: {
-    backgroundColor: '#f5f5f5',
+    backgroundColor: "#f5f5f5",
   },
   cancelButtonText: {
-    color: '#666',
+    color: "#666",
     fontSize: 16,
-    fontWeight: '600',
+    fontWeight: "600",
   },
   saveButton: {
-    backgroundColor: '#2196F3',
+    backgroundColor: "#2196F3",
   },
   saveButtonText: {
-    color: '#fff',
+    color: "#fff",
     fontSize: 16,
-    fontWeight: '600',
+    fontWeight: "600",
   },
 });
 
 export default ExercisesScreen;
-
-
-
