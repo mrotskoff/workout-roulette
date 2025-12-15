@@ -24,7 +24,7 @@ describe("Equipment Options Consistency", () => {
   describe("Equipment options match between screens", () => {
     test("should return same equipment options from database that are used in exercises", async () => {
       const { getEquipmentOptions, getExercises } = require("../../database");
-      
+
       // Mock exercises with various equipment types
       const mockExercises = [
         { id: 1, name: "Push-ups", equipment: "none" },
@@ -39,8 +39,13 @@ describe("Equipment Options Consistency", () => {
       getExercises.mockResolvedValue(mockExercises);
 
       // Extract unique equipment from exercises
-      const exerciseEquipment = [...new Set(mockExercises.map((e) => e.equipment))];
-      const expectedEquipment = ["none", ...exerciseEquipment.filter((e) => e !== "none")];
+      const exerciseEquipment = [
+        ...new Set(mockExercises.map((e) => e.equipment)),
+      ];
+      const expectedEquipment = [
+        "none",
+        ...exerciseEquipment.filter((e) => e !== "none"),
+      ];
 
       // Mock getEquipmentOptions to return the same equipment
       getEquipmentOptions.mockResolvedValue(expectedEquipment);
@@ -51,13 +56,16 @@ describe("Equipment Options Consistency", () => {
 
       // Extract equipment from exercises
       const exerciseEquipmentSet = new Set(exercises.map((e) => e.equipment));
-      const equipmentFromExercises = ["none", ...Array.from(exerciseEquipmentSet).filter((e) => e !== "none")];
+      const equipmentFromExercises = [
+        "none",
+        ...Array.from(exerciseEquipmentSet).filter((e) => e !== "none"),
+      ];
 
       // Equipment options should match equipment from exercises (ignoring order)
       const sortedOptions = [...equipmentOptions].sort();
       const sortedFromExercises = [...equipmentFromExercises].sort();
       expect(sortedOptions).toEqual(sortedFromExercises);
-      
+
       // Verify 'none' is first in equipmentOptions (not sorted)
       expect(equipmentOptions[0]).toBe("none");
     });
@@ -65,14 +73,14 @@ describe("Equipment Options Consistency", () => {
     test("should ensure HomeScreen and ExercisesScreen use same getEquipmentOptions function", () => {
       // Import the function that both screens should use
       const { getEquipmentOptions } = require("../../database");
-      
+
       // Verify it's the same function reference
       expect(typeof getEquipmentOptions).toBe("function");
-      
+
       // Both screens should import and use this same function
       // This test verifies the function exists and is exported
       expect(getEquipmentOptions).toBeDefined();
-      
+
       // Verify both screens import from the same module
       // HomeScreen imports: import { getEquipmentOptions } from "../database";
       // ExercisesScreen imports: import { getEquipmentOptions } from "../database";
@@ -80,10 +88,10 @@ describe("Equipment Options Consistency", () => {
       const databaseModule = require("../../database");
       expect(databaseModule.getEquipmentOptions).toBe(getEquipmentOptions);
     });
-    
+
     test("should return consistent equipment options for both workout creation and exercise management", async () => {
       const { getEquipmentOptions } = require("../../database");
-      
+
       // Mock equipment options from database
       const mockEquipmentData = [
         { equipment: "none" },
@@ -93,7 +101,7 @@ describe("Equipment Options Consistency", () => {
         { equipment: "barbell" },
         { equipment: "yoga-mat" },
       ];
-      
+
       getEquipmentOptions.mockResolvedValueOnce([
         "none",
         "dumbbells",
@@ -102,10 +110,10 @@ describe("Equipment Options Consistency", () => {
         "barbell",
         "yoga-mat",
       ]);
-      
+
       // Simulate HomeScreen calling getEquipmentOptions
       const homeScreenOptions = await getEquipmentOptions();
-      
+
       // Simulate ExercisesScreen calling getEquipmentOptions (should get same result)
       getEquipmentOptions.mockResolvedValueOnce([
         "none",
@@ -115,9 +123,9 @@ describe("Equipment Options Consistency", () => {
         "barbell",
         "yoga-mat",
       ]);
-      
+
       const exercisesScreenOptions = await getEquipmentOptions();
-      
+
       // Both screens should get the same equipment options
       expect(homeScreenOptions).toEqual(exercisesScreenOptions);
       expect(homeScreenOptions[0]).toBe("none");
@@ -126,7 +134,7 @@ describe("Equipment Options Consistency", () => {
 
     test("should return equipment options sorted with 'none' first", async () => {
       const { getEquipmentOptions } = require("../../database");
-      
+
       const mockEquipment = [
         { equipment: "dumbbells" },
         { equipment: "kettlebell" },

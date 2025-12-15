@@ -18,7 +18,12 @@ const HomeScreen = ({ navigation }) => {
   const [restTime, setRestTime] = useState("10");
   const [equipment, setEquipment] = useState(["none"]);
   const [loading, setLoading] = useState(false);
-  const [equipmentOptions, setEquipmentOptions] = useState(["none", "dumbbells", "kettlebells", "resistance-bands"]);
+  const [equipmentOptions, setEquipmentOptions] = useState([
+    "none",
+    "dumbbells",
+    "kettlebells",
+    "resistance-bands",
+  ]);
 
   useEffect(() => {
     loadEquipmentOptions();
@@ -28,10 +33,18 @@ const HomeScreen = ({ navigation }) => {
     try {
       const options = await getEquipmentOptions();
       // Ensure all expected equipment types are included, even if not in database yet
-      const expectedEquipment = ["none", "dumbbells", "kettlebells", "resistance-bands"];
+      const expectedEquipment = [
+        "none",
+        "dumbbells",
+        "kettlebells",
+        "resistance-bands",
+      ];
       const combinedOptions = [...new Set([...expectedEquipment, ...options])];
       // Keep 'none' first, then sort the rest
-      const sortedOptions = ["none", ...combinedOptions.filter(e => e !== "none").sort()];
+      const sortedOptions = [
+        "none",
+        ...combinedOptions.filter((e) => e !== "none").sort(),
+      ];
       setEquipmentOptions(sortedOptions);
     } catch (error) {
       console.error("Error loading equipment options:", error);
@@ -69,7 +82,10 @@ const HomeScreen = ({ navigation }) => {
   };
 
   return (
-    <ScrollView style={styles.container}>
+    <ScrollView
+      style={styles.container}
+      contentContainerStyle={styles.scrollContent}
+    >
       <View style={styles.content}>
         <Text style={styles.title}>Create Your Workout</Text>
         <Text style={styles.subtitle}>
@@ -203,6 +219,9 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: "#f5f5f5",
+  },
+  scrollContent: {
+    paddingBottom: 100,
   },
   content: {
     padding: 20,

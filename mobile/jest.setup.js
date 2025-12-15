@@ -1,5 +1,5 @@
 // Mock expo-sqlite
-jest.mock('expo-sqlite', () => ({
+jest.mock("expo-sqlite", () => ({
   openDatabaseAsync: jest.fn(),
 }));
 
@@ -12,4 +12,3 @@ global.console = {
   warn: jest.fn(),
   error: jest.fn(),
 };
-

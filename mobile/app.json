@@ -18,7 +18,9 @@
       "enabled": false
     },
     "plugins": [
-      "expo-sqlite"
+      "expo-sqlite",
+      "expo-asset",
+      "expo-audio"
     ],
     "ios": {
       "supportsTablet": true,
@@ -37,4 +39,3 @@
     }
   }
 }
-

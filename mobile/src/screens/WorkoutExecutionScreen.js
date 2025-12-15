@@ -13,7 +13,7 @@ import {
   SafeAreaView,
   useSafeAreaInsets,
 } from "react-native-safe-area-context";
-import { Audio } from "expo-av";
+import { useAudioPlayer } from "expo-audio";
 import { Asset } from "expo-asset";
 
 const WorkoutExecutionScreen = ({ route, navigation }) => {
@@ -30,65 +30,94 @@ const WorkoutExecutionScreen = ({ route, navigation }) => {
   const intervalRef = useRef(null);
   const restIntervalRef = useRef(null);
   const fadeAnim = useRef(new Animated.Value(1)).current;
-  const pingSound = useRef(null);
+  const [pingSoundUri, setPingSoundUri] = useState(null);
+
+  // Create audio player - hook must always be called
+  const pingPlayer = useAudioPlayer(pingSoundUri || "");
 
   const currentExercise = workout.exercises[currentExerciseIndex];
+  const nextExercise = workout.exercises[currentExerciseIndex + 1];
   const totalExercises = workout.exercises.length;
   const restTimeSeconds = workout.restTimeSeconds || 0;
   const exerciseDurationSeconds = workout.exerciseDurationSeconds || 60;
 
-  // Load ping sound on mount
+  // Load ping sound URI on mount
   useEffect(() => {
     const loadSound = async () => {
       try {
-        // Try to load the asset first
-        let audioUri;
-        try {
-          const asset = Asset.fromModule(require("../assets/ping.mp3"));
-          await asset.downloadAsync();
-          audioUri = asset.localUri || asset.uri;
-        } catch (assetError) {
-          console.log("Asset loading error, trying direct require:", assetError);
-          // Fallback to direct require
-          audioUri = require("../assets/ping.mp3");
-        }
+        // Load asset using expo-asset for proper handling
+        const asset = Asset.fromModule(require("../../assets/ping.mp3"));
+        await asset.downloadAsync();
 
-        const { sound } = await Audio.Sound.createAsync(
-          audioUri,
-          { shouldPlay: false, volume: 1.0 }
-        );
-        pingSound.current = sound;
-        console.log("Ping sound loaded successfully");
+        const uri = asset.localUri || asset.uri;
+        setPingSoundUri(uri);
+        console.log("Ping sound loaded successfully, URI:", uri);
       } catch (error) {
         console.error(
           "Could not load ping sound, will use vibration fallback:",
           error.message || error
         );
-        console.error("Error details:", error);
+        console.error("Error stack:", error.stack);
+        // Will fallback to vibration in playPing function
       }
     };
     loadSound();
-
-    return () => {
-      if (pingSound.current) {
-        pingSound.current.unloadAsync().catch((err) => {
-          console.log("Error unloading sound:", err);
-        });
-      }
-    };
   }, []);
+
+  // Update player source when URI becomes available
+  useEffect(() => {
+    if (pingSoundUri && pingPlayer) {
+      // The useAudioPlayer hook should automatically update when the source changes,
+      // but we can try to ensure it's ready by checking if replace method exists
+      if (pingPlayer.replace && typeof pingPlayer.replace === "function") {
+        try {
+          pingPlayer.replace(pingSoundUri);
+        } catch (error) {
+          console.error("Error updating audio player source:", error);
+        }
+      }
+    }
+  }, [pingSoundUri, pingPlayer]);
 
   // Play ping sound - audio with vibration fallback
   const playPing = async () => {
     try {
-      if (pingSound.current) {
-        await pingSound.current.replayAsync();
+      if (pingPlayer && pingSoundUri) {
+        // Ensure we're at the beginning and play
+        try {
+          // Reset to beginning
+          if (pingPlayer.seekTo) {
+            pingPlayer.seekTo(0);
+          }
+
+          // Try to play
+          if (pingPlayer.playing) {
+            // If already playing, use replay
+            if (pingPlayer.replay) {
+              pingPlayer.replay();
+            } else {
+              pingPlayer.seekTo(0);
+              pingPlayer.play();
+            }
+          } else {
+            // Not playing, just play
+            pingPlayer.play();
+          }
+        } catch (playError) {
+          console.error("Error in play() call:", playError);
+          throw playError;
+        }
       } else {
         // Fallback to vibration if audio not loaded
+        console.log("Ping sound not available, using vibration", {
+          hasPlayer: !!pingPlayer,
+          hasUri: !!pingSoundUri,
+        });
         Vibration.vibrate(100);
       }
     } catch (error) {
       // Fallback to vibration on error
+      console.error("Error playing ping sound:", error);
       Vibration.vibrate(100);
     }
   };
@@ -398,38 +427,10 @@ const WorkoutExecutionScreen = ({ route, navigation }) => {
         </View>
       ) : (
         <View style={styles.workoutContent}>
-          {/* Exercise Info - Compressed at top */}
-          <View style={styles.exerciseInfo}>
-            <Text style={styles.exerciseName}>{currentExercise.name}</Text>
-            <Text style={styles.exerciseCategory}>
-              {currentExercise.category.charAt(0).toUpperCase() +
-                currentExercise.category.slice(1)}
-            </Text>
-            {currentExercise.description && (
-              <Text
-                style={styles.exerciseDescription}
-                numberOfLines={2}
-                ellipsizeMode="tail"
-              >
-                {currentExercise.description}
-              </Text>
-            )}
-            <View style={styles.exerciseTags}>
-              <View style={styles.tag}>
-                <Text style={styles.tagText}>
-                  {currentExercise.equipment || "None"}
-                </Text>
-              </View>
-            </View>
-          </View>
-
-          {/* Rest Screen */}
           {isResting ? (
-            <View style={styles.restContainer}>
-              <View style={styles.restHeader}>
-                <Text style={styles.restTitle}>Rest Time</Text>
-              </View>
-              <View style={styles.restTimerContainer}>
+            <View style={styles.restScreenContainer}>
+              {/* Timer */}
+              <View style={styles.timerContainer}>
                 <Animated.View
                   style={[
                     styles.timerCircle,
@@ -442,15 +443,33 @@ const WorkoutExecutionScreen = ({ route, navigation }) => {
                   <Text style={styles.timerLabel}>Time Remaining</Text>
                 </Animated.View>
               </View>
-              <View style={styles.restFooter}>
-                <Text style={styles.restSubtitle}>
-                  Next exercise starting automatically...
-                </Text>
-              </View>
+
+              {/* Next Exercise Info */}
+              {nextExercise && (
+                <View style={styles.restNextExercise}>
+                  <Text style={styles.restNextLabel}>Next Exercise</Text>
+                  <Text style={styles.restNextExerciseName}>
+                    {nextExercise.name}
+                  </Text>
+                  <Text style={styles.restNextExerciseCategory}>
+                    {nextExercise.category.charAt(0).toUpperCase() +
+                      nextExercise.category.slice(1)}
+                  </Text>
+                  {nextExercise.description && (
+                    <Text
+                      style={styles.restNextExerciseDescription}
+                      numberOfLines={2}
+                      ellipsizeMode="tail"
+                    >
+                      {nextExercise.description}
+                    </Text>
+                  )}
+                </View>
+              )}
             </View>
           ) : (
-            <>
-              {/* Timer - Centered in middle */}
+            <View style={styles.exerciseScreenContainer}>
+              {/* Timer */}
               <View style={styles.timerContainer}>
                 <Animated.View
                   style={[styles.timerCircle, { opacity: fadeAnim }]}
@@ -462,7 +481,25 @@ const WorkoutExecutionScreen = ({ route, navigation }) => {
                 </Animated.View>
               </View>
 
-              {/* Controls - Fixed at bottom */}
+              {/* Exercise Info */}
+              <View style={styles.exerciseInfo}>
+                <Text style={styles.exerciseName}>{currentExercise.name}</Text>
+                <Text style={styles.exerciseCategory}>
+                  {currentExercise.category.charAt(0).toUpperCase() +
+                    currentExercise.category.slice(1)}
+                </Text>
+                {currentExercise.description && (
+                  <Text
+                    style={styles.exerciseDescription}
+                    numberOfLines={2}
+                    ellipsizeMode="tail"
+                  >
+                    {currentExercise.description}
+                  </Text>
+                )}
+              </View>
+
+              {/* Controls */}
               <View
                 style={[
                   styles.controls,
@@ -493,7 +530,7 @@ const WorkoutExecutionScreen = ({ route, navigation }) => {
                   </>
                 )}
               </View>
-            </>
+            </View>
           )}
         </View>
       )}
@@ -570,10 +607,10 @@ const styles = StyleSheet.create({
     fontWeight: "bold",
   },
   exerciseInfo: {
-    padding: 15,
-    paddingTop: 10,
-    paddingBottom: 5,
     alignItems: "center",
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    width: "100%",
   },
   exerciseName: {
     fontSize: 24,
@@ -611,15 +648,24 @@ const styles = StyleSheet.create({
     color: "#1976d2",
     textTransform: "capitalize",
   },
+  exerciseScreenContainer: {
+    flex: 1,
+    justifyContent: "flex-start",
+    alignItems: "center",
+    paddingTop: 10,
+    paddingHorizontal: 20,
+  },
+  restScreenContainer: {
+    flex: 1,
+    justifyContent: "flex-start",
+    alignItems: "center",
+    paddingTop: 10,
+  },
   timerContainer: {
-    position: "absolute",
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
     justifyContent: "center",
     alignItems: "center",
-    paddingVertical: 20,
+    paddingTop: 10,
+    paddingBottom: 10,
     paddingHorizontal: 40,
   },
   timerCircle: {
@@ -647,13 +693,18 @@ const styles = StyleSheet.create({
     opacity: 0.9,
   },
   controls: {
-    position: "absolute",
-    bottom: 0,
-    left: 0,
-    right: 0,
-    padding: 20,
+    paddingVertical: 10,
     paddingTop: 10,
+    paddingHorizontal: 0,
     backgroundColor: "#f5f5f5",
+    width: "100%",
+  },
+  controlsRow: {
+    flexDirection: "row",
+    gap: 10,
+    justifyContent: "center",
+    alignItems: "center",
+    width: "100%",
   },
   startButton: {
     backgroundColor: "#4CAF50",
@@ -672,6 +723,7 @@ const styles = StyleSheet.create({
     padding: 20,
     alignItems: "center",
     marginBottom: 10,
+    width: "100%",
   },
   pauseButtonText: {
     color: "#fff",
@@ -695,25 +747,18 @@ const styles = StyleSheet.create({
     borderWidth: 2,
     borderColor: "#f44336",
     borderRadius: 12,
-    padding: 15,
+    padding: 20,
     alignItems: "center",
+    width: "100%",
   },
   skipButtonText: {
     color: "#f44336",
     fontSize: 16,
     fontWeight: "600",
   },
-  restContainer: {
-    flex: 1,
-    justifyContent: "space-between",
-    alignItems: "center",
-    paddingVertical: 40,
-    paddingHorizontal: 20,
-  },
   restHeader: {
-    flex: 0,
-    paddingTop: 20,
     alignItems: "center",
+    paddingVertical: 20,
   },
   restTitle: {
     fontSize: 32,
@@ -721,23 +766,57 @@ const styles = StyleSheet.create({
     color: "#FF9800",
     textAlign: "center",
   },
-  restTimerContainer: {
+  restNextExercise: {
+    alignItems: "center",
+    paddingHorizontal: 20,
+    paddingVertical: 10,
     flex: 1,
     justifyContent: "center",
-    alignItems: "center",
-    minHeight: 250,
   },
-  restFooter: {
-    flex: 0,
-    paddingBottom: 20,
-    alignItems: "center",
-    justifyContent: "center",
+  restNextLabel: {
+    fontSize: 18,
+    fontWeight: "600",
+    color: "#666",
+    marginBottom: 10,
+    textTransform: "uppercase",
+    letterSpacing: 1,
   },
-  restSubtitle: {
-    fontSize: 16,
+  restNextExerciseName: {
+    fontSize: 24,
+    fontWeight: "bold",
+    color: "#333",
+    marginBottom: 5,
+    textAlign: "center",
+  },
+  restNextExerciseCategory: {
+    fontSize: 14,
+    color: "#666",
+    marginBottom: 5,
+    textTransform: "capitalize",
+  },
+  restNextExerciseDescription: {
+    fontSize: 12,
     color: "#666",
     textAlign: "center",
+    marginBottom: 10,
     paddingHorizontal: 20,
+  },
+  restNextExerciseTags: {
+    flexDirection: "row",
+    gap: 10,
+  },
+  restTag: {
+    backgroundColor: "#fff3e0",
+    paddingHorizontal: 15,
+    paddingVertical: 8,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: "#FF9800",
+  },
+  restTagText: {
+    fontSize: 14,
+    color: "#FF9800",
+    textTransform: "capitalize",
   },
   completeContainer: {
     flex: 1,
