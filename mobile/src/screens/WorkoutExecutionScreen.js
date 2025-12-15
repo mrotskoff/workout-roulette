@@ -14,6 +14,7 @@ import {
   useSafeAreaInsets,
 } from "react-native-safe-area-context";
 import { Audio } from "expo-av";
+import { Asset } from "expo-asset";
 
 const WorkoutExecutionScreen = ({ route, navigation }) => {
   const { workout } = route.params;
@@ -40,23 +41,39 @@ const WorkoutExecutionScreen = ({ route, navigation }) => {
   useEffect(() => {
     const loadSound = async () => {
       try {
+        // Try to load the asset first
+        let audioUri;
+        try {
+          const asset = Asset.fromModule(require("../assets/ping.mp3"));
+          await asset.downloadAsync();
+          audioUri = asset.localUri || asset.uri;
+        } catch (assetError) {
+          console.log("Asset loading error, trying direct require:", assetError);
+          // Fallback to direct require
+          audioUri = require("../assets/ping.mp3");
+        }
+
         const { sound } = await Audio.Sound.createAsync(
-          require("../assets/ping.mp3"),
+          audioUri,
           { shouldPlay: false, volume: 1.0 }
         );
         pingSound.current = sound;
+        console.log("Ping sound loaded successfully");
       } catch (error) {
-        console.log(
+        console.error(
           "Could not load ping sound, will use vibration fallback:",
-          error
+          error.message || error
         );
+        console.error("Error details:", error);
       }
     };
     loadSound();
 
     return () => {
       if (pingSound.current) {
-        pingSound.current.unloadAsync();
+        pingSound.current.unloadAsync().catch((err) => {
+          console.log("Error unloading sound:", err);
+        });
       }
     };
   }, []);
@@ -409,8 +426,10 @@ const WorkoutExecutionScreen = ({ route, navigation }) => {
           {/* Rest Screen */}
           {isResting ? (
             <View style={styles.restContainer}>
-              <Text style={styles.restTitle}>Rest Time</Text>
-              <View style={styles.timerContainer}>
+              <View style={styles.restHeader}>
+                <Text style={styles.restTitle}>Rest Time</Text>
+              </View>
+              <View style={styles.restTimerContainer}>
                 <Animated.View
                   style={[
                     styles.timerCircle,
@@ -423,9 +442,11 @@ const WorkoutExecutionScreen = ({ route, navigation }) => {
                   <Text style={styles.timerLabel}>Time Remaining</Text>
                 </Animated.View>
               </View>
-              <Text style={styles.restSubtitle}>
-                Next exercise starting automatically...
-              </Text>
+              <View style={styles.restFooter}>
+                <Text style={styles.restSubtitle}>
+                  Next exercise starting automatically...
+                </Text>
+              </View>
             </View>
           ) : (
             <>
@@ -683,26 +704,38 @@ const styles = StyleSheet.create({
     fontWeight: "600",
   },
   restContainer: {
-    position: "absolute",
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    justifyContent: "center",
+    flex: 1,
+    justifyContent: "space-between",
     alignItems: "center",
-    paddingVertical: 20,
-    paddingHorizontal: 40,
+    paddingVertical: 40,
+    paddingHorizontal: 20,
+  },
+  restHeader: {
+    flex: 0,
+    paddingTop: 20,
+    alignItems: "center",
   },
   restTitle: {
     fontSize: 32,
     fontWeight: "bold",
     color: "#FF9800",
-    marginBottom: 20,
+    textAlign: "center",
+  },
+  restTimerContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    minHeight: 250,
+  },
+  restFooter: {
+    flex: 0,
+    paddingBottom: 20,
+    alignItems: "center",
+    justifyContent: "center",
   },
   restSubtitle: {
     fontSize: 16,
     color: "#666",
-    marginTop: 30,
     textAlign: "center",
     paddingHorizontal: 20,
   },
