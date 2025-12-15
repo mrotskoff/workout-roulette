@@ -11,27 +11,21 @@
       "resizeMode": "contain",
       "backgroundColor": "#ffffff"
     },
-    "assetBundlePatterns": [
-      "**/*"
-    ],
+    "assetBundlePatterns": ["**/*"],
     "updates": {
       "enabled": false
     },
-    "plugins": [
-      "expo-sqlite",
-      "expo-asset",
-      "expo-audio"
-    ],
+    "plugins": ["expo-sqlite", "expo-asset", "expo-audio"],
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.workoutroulette.app"
+      "bundleIdentifier": "com.ghostrunner.workoutroulette.app"
     },
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#ffffff"
       },
-      "package": "com.workoutroulette.app"
+      "package": "com.ghostrunner.workoutroulette.app"
     },
     "web": {
       "favicon": "./assets/favicon.png",
