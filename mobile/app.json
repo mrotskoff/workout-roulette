@@ -25,11 +25,20 @@
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#ffffff"
       },
-      "package": "com.ghostrunnertech.workoutroulette.app"
+      "package": "com.ghostrunnertech.workoutroulette.app",
+      "permissions": [
+        "android.permission.RECORD_AUDIO",
+        "android.permission.MODIFY_AUDIO_SETTINGS"
+      ]
     },
     "web": {
       "favicon": "./assets/favicon.png",
       "bundler": "metro"
+    },
+    "extra": {
+      "eas": {
+        "projectId": "f2cb501b-7fb4-4231-b730-46e1818cbae3"
+      }
     }
   }
 }
