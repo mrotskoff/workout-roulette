@@ -124,12 +124,6 @@ const insertSampleExercises = async (database) => {
       equipment: "none",
     },
     {
-      name: "Plank",
-      category: "strength",
-      description: "Core strength hold",
-      equipment: "none",
-    },
-    {
       name: "Dumbbell Curls",
       category: "strength",
       description: "Bicep curls with weights",
@@ -160,9 +154,33 @@ const insertSampleExercises = async (database) => {
       equipment: "resistance-bands",
     },
     {
-      name: "Band Chest Press",
+      name: "Arrow Arm Pulls",
       category: "strength",
-      description: "Chest exercise with resistance band",
+      description: "Arm pull exercise with resistance band",
+      equipment: "resistance-bands",
+    },
+    {
+      name: "Deltoid Pulses",
+      category: "strength",
+      description: "Shoulder pulse exercise with resistance band",
+      equipment: "resistance-bands",
+    },
+    {
+      name: "Squat Pulse",
+      category: "strength",
+      description: "Squat and pulse",
+      equipment: "none",
+    },
+    {
+      name: "Clamshell Openers",
+      category: "strength",
+      description: "Put band around the thighs and open the legs",
+      equipment: "resistance-bands",
+    },
+    {
+      name: "Leg Weight Transfers",
+      category: "strength",
+      description: "Band around ankles, stretch band and transfer weight",
       equipment: "resistance-bands",
     },
 
@@ -171,12 +189,6 @@ const insertSampleExercises = async (database) => {
       name: "Stretching",
       category: "flexibility",
       description: "General stretching",
-      equipment: "none",
-    },
-    {
-      name: "Yoga Flow",
-      category: "flexibility",
-      description: "Gentle yoga sequence",
       equipment: "none",
     },
 
@@ -212,13 +224,19 @@ const insertSampleExercises = async (database) => {
       equipment: "none",
     },
     {
+      name: "Side Plank Dips",
+      category: "core",
+      description: "Lateral core strength dips",
+      equipment: "none",
+    },
+    {
       name: "Dead Bug",
       category: "core",
       description: "Core stability exercise on back",
       equipment: "none",
     },
     {
-      name: "Hollow Body Hold",
+      name: "Plank",
       category: "core",
       description: "Full body core isometric hold",
       equipment: "none",
@@ -229,14 +247,38 @@ const insertSampleExercises = async (database) => {
       description: "Full body movement with kettlebell",
       equipment: "kettlebells",
     },
-
-    // Balance
     {
-      name: "Single Leg Stand",
-      category: "balance",
-      description: "Balance on one leg",
+      name: "V-Ups",
+      category: "core",
+      description: "Lift legs and torso, touch toes",
       equipment: "none",
     },
+    {
+      name: "Pencil-Ups",
+      category: "core",
+      description: "Lift legs straight up like a pencil",
+      equipment: "none",
+    },
+    {
+      name: "Oblique Ankle Touches",
+      category: "core",
+      description: "lie on back, alternate touching ankles",
+      equipment: "none",
+    },
+    {
+      name: "Straight Leg Sit-Ups",
+      category: "core",
+      description: "Sit up with legs straight",
+      equipment: "none",
+    },
+    {
+      name: "Cherry Pickers",
+      category: "core",
+      description: "Lie on back, lift legs and alternate touching toes",
+      equipment: "none",
+    },
+
+    // Balance
     {
       name: "Tree Pose",
       category: "balance",
@@ -260,12 +302,6 @@ const insertSampleExercises = async (database) => {
       category: "balance",
       description: "Single leg deadlift with kettlebell",
       equipment: "kettlebells",
-    },
-    {
-      name: "Warrior III",
-      category: "balance",
-      description: "Yoga balance pose",
-      equipment: "none",
     },
 
     // More Cardio
@@ -404,21 +440,9 @@ const insertSampleExercises = async (database) => {
       equipment: "resistance-bands",
     },
     {
-      name: "Band Tricep Extensions",
-      category: "strength",
-      description: "Tricep extension with resistance band",
-      equipment: "resistance-bands",
-    },
-    {
       name: "Band Squats",
       category: "strength",
       description: "Squats with resistance band",
-      equipment: "resistance-bands",
-    },
-    {
-      name: "Band Lateral Raises",
-      category: "strength",
-      description: "Shoulder lateral raises with band",
       equipment: "resistance-bands",
     },
 
@@ -471,12 +495,6 @@ const insertSampleExercises = async (database) => {
       description: "Restorative yoga pose",
       equipment: "none",
     },
-    {
-      name: "Band Assisted Stretches",
-      category: "flexibility",
-      description: "Stretching with resistance band assistance",
-      equipment: "resistance-bands",
-    },
 
     // General
     {
@@ -504,22 +522,10 @@ const insertSampleExercises = async (database) => {
       equipment: "none",
     },
     {
-      name: "Fire Hydrants",
+      name: "Inchworms",
       category: "general",
-      description: "Quadruped hip abduction exercise",
+      description: "Walk hands out to plank position and back",
       equipment: "none",
-    },
-    {
-      name: "Dumbbell Complex",
-      category: "general",
-      description: "Multi-movement sequence with dumbbells",
-      equipment: "dumbbells",
-    },
-    {
-      name: "Kettlebell Complex",
-      category: "general",
-      description: "Multi-movement sequence with kettlebell",
-      equipment: "kettlebells",
     },
   ];
 
