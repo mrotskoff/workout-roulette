@@ -26,10 +26,7 @@
         "backgroundColor": "#ffffff"
       },
       "package": "com.ghostrunnertech.workoutroulette.app",
-      "permissions": [
-        "android.permission.RECORD_AUDIO",
-        "android.permission.MODIFY_AUDIO_SETTINGS"
-      ]
+      "permissions": ["android.permission.MODIFY_AUDIO_SETTINGS"]
     },
     "web": {
       "favicon": "./assets/favicon.png",
