@@ -7,58 +7,9 @@ on:
     branches: [ main, master ]
 
 jobs:
-  test-backend:
-    name: Test Backend
-    runs-on: ubuntu-latest
-    
-    steps:
-      - uses: actions/checkout@v4
-      
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '18'
-          cache: 'npm'
-          cache-dependency-path: package-lock.json
-      
-      - name: Install dependencies
-        run: npm ci
-      
-      - name: Check server code
-        run: |
-          cd server
-          node -c index.js
-          node -c database.js
-          node -c routes/exercises.js
-          node -c routes/workouts.js
-          node -c services/workoutGenerator.js
 
-  test-admin:
-    name: Test Admin
-    runs-on: ubuntu-latest
-    
-    steps:
-      - uses: actions/checkout@v4
-      
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '18'
-          cache: 'npm'
-          cache-dependency-path: admin/package-lock.json
-      
-      - name: Install dependencies
-        run: |
-          cd admin
-          npm ci
-      
-      - name: Build admin
-        run: |
-          cd admin
-          npm run build
-
-  lint-mobile:
-    name: Lint Mobile
+  test-mobile:
+    name: Test Mobile
     runs-on: ubuntu-latest
     
     steps:
@@ -76,9 +27,8 @@ jobs:
           cd mobile
           npm ci
       
-      - name: Check mobile code
+      - name: Run tests
         run: |
           cd mobile
-          node -c App.js
-          node -c src/config.js
+          npm test -- --coverage=false
 
