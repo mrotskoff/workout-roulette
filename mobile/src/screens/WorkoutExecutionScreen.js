@@ -447,7 +447,8 @@ const WorkoutExecutionScreen = ({ route, navigation }) => {
               {/* Next Exercise Info */}
               {nextExercise && (
                 <View style={styles.restNextExercise}>
-                  <Text style={styles.restNextLabel}>Next Exercise</Text>
+                  <Text style={styles.restTitle}>Rest!</Text>
+                  <Text style={styles.restNextLabel}>Next Exercise...</Text>
                   <Text style={styles.restNextExerciseName}>
                     {nextExercise.name}
                   </Text>
@@ -756,20 +757,16 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: "600",
   },
-  restHeader: {
-    alignItems: "center",
-    paddingVertical: 20,
-  },
   restTitle: {
     fontSize: 32,
     fontWeight: "bold",
     color: "#FF9800",
     textAlign: "center",
+    marginBottom: 15,
   },
   restNextExercise: {
     alignItems: "center",
     paddingHorizontal: 20,
-    paddingVertical: 10,
     flex: 1,
     justifyContent: "center",
   },

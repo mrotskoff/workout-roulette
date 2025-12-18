@@ -200,7 +200,7 @@ const HomeScreen = ({ navigation }) => {
           {loading ? (
             <ActivityIndicator color="#fff" />
           ) : (
-            <Text style={styles.generateButtonText}>Generate Workout</Text>
+            <Text style={styles.generateButtonText}>Spin up a Workout!</Text>
           )}
         </TouchableOpacity>
 
