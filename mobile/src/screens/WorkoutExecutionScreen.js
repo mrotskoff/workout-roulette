@@ -107,39 +107,7 @@ const WorkoutExecutionScreen = ({ route, navigation }) => {
   // Play ping sound - audio with vibration fallback
   const playPing = async () => {
     try {
-      if (pingPlayer && pingSoundUri) {
-        // Ensure we're at the beginning and play
-        try {
-          // Reset to beginning
-          if (pingPlayer.seekTo) {
-            pingPlayer.seekTo(0);
-          }
-
-          // Try to play
-          if (pingPlayer.playing) {
-            // If already playing, use replay
-            if (pingPlayer.replay) {
-              pingPlayer.replay();
-            } else {
-              pingPlayer.seekTo(0);
-              pingPlayer.play();
-            }
-          } else {
-            // Not playing, just play
-            pingPlayer.play();
-          }
-        } catch (playError) {
-          console.error("Error in play() call:", playError);
-          throw playError;
-        }
-      } else {
-        // Fallback to vibration if audio not loaded
-        console.log("Ping sound not available, using vibration", {
-          hasPlayer: !!pingPlayer,
-          hasUri: !!pingSoundUri,
-        });
-        Vibration.vibrate(100);
-      }
+      pingPlayer.play();
     } catch (error) {
       // Fallback to vibration on error
       console.error("Error playing ping sound:", error);
