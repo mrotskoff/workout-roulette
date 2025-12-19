@@ -31,9 +31,11 @@ const WorkoutExecutionScreen = ({ route, navigation }) => {
   const restIntervalRef = useRef(null);
   const fadeAnim = useRef(new Animated.Value(1)).current;
   const [pingSoundUri, setPingSoundUri] = useState(null);
+  const [celebrationSoundUri, setCelebrationSoundUri] = useState(null);
 
   // Create audio player - hook must always be called
   const pingPlayer = useAudioPlayer(pingSoundUri || "");
+  const celebrationPlayer = useAudioPlayer(celebrationSoundUri || "");
 
   const currentExercise = workout.exercises[currentExerciseIndex];
   const nextExercise = workout.exercises[currentExerciseIndex + 1];
@@ -59,6 +61,29 @@ const WorkoutExecutionScreen = ({ route, navigation }) => {
         );
         console.error("Error stack:", error.stack);
         // Will fallback to vibration in playPing function
+      }
+    };
+    loadSound();
+  }, []);
+
+  // Load celebration sound URI on mount
+  useEffect(() => {
+    const loadSound = async () => {
+      try {
+        // Load asset using expo-asset for proper handling
+        const asset = Asset.fromModule(require("../../assets/celebration.mp3"));
+        await asset.downloadAsync();
+
+        const uri = asset.localUri || asset.uri;
+        setCelebrationSoundUri(uri);
+        console.log("Celebration sound loaded successfully, URI:", uri);
+      } catch (error) {
+        console.error(
+          "Could not load celebration sound, will use vibration fallback:",
+          error.message || error
+        );
+        console.error("Error stack:", error.stack);
+        // Will fallback to vibration in playCelebrationSound function
       }
     };
     loadSound();
@@ -119,6 +144,17 @@ const WorkoutExecutionScreen = ({ route, navigation }) => {
       // Fallback to vibration on error
       console.error("Error playing ping sound:", error);
       Vibration.vibrate(100);
+    }
+  };
+
+  // Play ping sound - audio with vibration fallback
+  const playCelebrationSound = async () => {
+    try {
+      celebrationPlayer.play();
+    } catch (error) {
+      // Fallback to vibration on error
+      console.error("Error playing celebration sound:", error);
+      Vibration.vibrate(300);
     }
   };
 
@@ -244,6 +280,7 @@ const WorkoutExecutionScreen = ({ route, navigation }) => {
       // Workout complete
       setIsComplete(true);
       setIsRunning(false);
+      playCelebrationSound();
       Alert.alert(
         "Workout Complete!",
         `Great job! You completed ${totalExercises} exercises.`,
@@ -448,7 +485,7 @@ const WorkoutExecutionScreen = ({ route, navigation }) => {
               {nextExercise && (
                 <View style={styles.restNextExercise}>
                   <Text style={styles.restTitle}>Rest!</Text>
-                  <Text style={styles.restNextLabel}>Next Exercise...</Text>
+                  <Text style={styles.restNextLabel}>Next Exercise:</Text>
                   <Text style={styles.restNextExerciseName}>
                     {nextExercise.name}
                   </Text>

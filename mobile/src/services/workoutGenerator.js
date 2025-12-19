@@ -1,5 +1,89 @@
 import { getExercises } from "../database";
 
+// Helper: Remove duplicate exercises by ID
+const removeDuplicates = (exercises) => {
+  const seenIds = new Set();
+  return exercises.filter((ex) => {
+    if (seenIds.has(ex.id)) return false;
+    seenIds.add(ex.id);
+    return true;
+  });
+};
+
+// Helper: Create exercise object with duration and order
+const createExerciseEntry = (exercise, duration, order) => ({
+  ...exercise,
+  duration_seconds: duration,
+  order,
+});
+
+// Helper: Get exercise from sequence by index
+const getExerciseFromSequence = (selectedExercises, sequenceIndex) => {
+  const index = sequenceIndex % selectedExercises.length;
+  return { ...selectedExercises[index], id: selectedExercises[index].id };
+};
+
+// Helper: Create weighted pool (equipment exercises 5x weight)
+const createWeightedPool = (equipmentExercises, noEquipmentExercises) => {
+  const pool = [];
+  for (let i = 0; i < 5; i++) {
+    pool.push(...equipmentExercises);
+  }
+  pool.push(...noEquipmentExercises);
+  return pool;
+};
+
+// Helper: Select from weighted pool randomly
+const selectFromWeightedPool = (pool) => {
+  if (pool.length === 0) return null;
+  const randomIndex = Math.floor(Math.random() * pool.length);
+  return pool[randomIndex];
+};
+
+// Helper: Add final exercise and break
+const addFinalExercise = (
+  selected,
+  selectedExercises,
+  exerciseDuration,
+  currentTime
+) => {
+  const exerciseEntry = createExerciseEntry(
+    selected,
+    exerciseDuration,
+    selectedExercises.length + 1
+  );
+  selectedExercises.push(exerciseEntry);
+  return currentTime + exerciseDuration;
+};
+
+// Helper: Try to get exercise from sequence or return null
+const tryGetFromSequence = (
+  selectedExercises,
+  sequenceRepeatIndex,
+  remainingTime,
+  exerciseDuration,
+  restTimeSeconds
+) => {
+  const timeNeededWithRest =
+    exerciseDuration + restTimeSeconds + exerciseDuration;
+  const timeNeededJustExercise = exerciseDuration;
+
+  if (timeNeededWithRest <= remainingTime) {
+    // Can fit exercise + rest + another exercise
+    return {
+      exercise: getExerciseFromSequence(selectedExercises, sequenceRepeatIndex),
+      isFinal: false,
+    };
+  } else if (timeNeededJustExercise <= remainingTime) {
+    // Can only fit one more exercise (last one)
+    return {
+      exercise: getExerciseFromSequence(selectedExercises, sequenceRepeatIndex),
+      isFinal: true,
+    };
+  }
+  return null;
+};
+
 export const generateWorkout = async (
   totalTimeSeconds,
   equipment,
@@ -14,43 +98,27 @@ export const generateWorkout = async (
     categories,
   });
   try {
-    // Build query filters
-    const filters = {};
-
-    // Filter by equipment
+    // Normalize equipment input
     const equipmentList = Array.isArray(equipment) ? equipment : [equipment];
     const equipmentFilter = equipmentList.filter((e) => e !== "none");
     const hasEquipment = equipmentFilter.length > 0;
+    const exerciseDuration = exerciseDurationSeconds || 60;
 
-    // Get exercises from database
-    // If multiple equipment types are selected, fetch exercises for ALL of them
+    // Fetch exercises from database
     let exercises = [];
-
     if (hasEquipment) {
       // Fetch exercises for each selected equipment type
       const allEquipmentExercises = [];
       for (const eq of equipmentFilter) {
-        const eqFilters = { equipment: eq };
-        const eqExercises = await getExercises(eqFilters);
+        const eqExercises = await getExercises({ equipment: eq });
         allEquipmentExercises.push(...eqExercises);
       }
-
       // Also fetch 'none' equipment exercises
-      const noneFilters = { equipment: "none" };
-      const noneExercises = await getExercises(noneFilters);
-
-      // Combine all exercises and remove duplicates by ID
-      const combinedExercises = [...allEquipmentExercises, ...noneExercises];
-      const uniqueExercises = [];
-      const seenIds = new Set();
-      for (const ex of combinedExercises) {
-        if (!seenIds.has(ex.id)) {
-          seenIds.add(ex.id);
-          uniqueExercises.push(ex);
-        }
-      }
-      exercises = uniqueExercises;
-
+      const noneExercises = await getExercises({ equipment: "none" });
+      exercises = removeDuplicates([
+        ...allEquipmentExercises,
+        ...noneExercises,
+      ]);
       console.log(
         "[DEBUG] Fetched exercises for equipment types:",
         equipmentFilter,
@@ -58,9 +126,7 @@ export const generateWorkout = async (
         exercises.length
       );
     } else {
-      // No equipment selected, only get 'none' exercises
-      filters.equipment = "none";
-      exercises = await getExercises(filters);
+      exercises = await getExercises({ equipment: "none" });
       console.log(
         "[DEBUG] getExercises returned",
         exercises?.length,
@@ -78,12 +144,9 @@ export const generateWorkout = async (
     }
 
     // Separate exercises by equipment preference
-    // If equipment is available (not just 'none'), prioritize exercises that use that equipment
     let equipmentExercises = [];
     let noEquipmentExercises = [];
-
     if (hasEquipment) {
-      // Split exercises into those that use equipment and those that don't
       equipmentExercises = exercises.filter((ex) =>
         equipmentFilter.includes(ex.equipment)
       );
@@ -92,7 +155,6 @@ export const generateWorkout = async (
           ex.equipment === "none" || !equipmentFilter.includes(ex.equipment)
       );
     } else {
-      // No equipment selected, all exercises are equally valid
       equipmentExercises = exercises;
       noEquipmentExercises = [];
     }
@@ -113,74 +175,45 @@ export const generateWorkout = async (
     ];
 
     // Build workout by selecting exercises until we reach the target time
-    // Account for rest time between exercises (N exercises = N-1 rest periods)
     const selectedExercises = [];
     let currentTime = 0;
     let attempts = 0;
     const maxAttempts = 1000;
-    const exerciseDuration = exerciseDurationSeconds || 60;
-    let sequenceRepeatIndex = 0; // Track position when repeating the sequence
+    let sequenceRepeatIndex = 0;
 
     while (currentTime < totalTimeSeconds && attempts < maxAttempts) {
       attempts++;
-
       const remainingTime = totalTimeSeconds - currentTime;
-
-      // Calculate time needed: exercise duration + rest time (if we're adding another exercise after this)
-      // We need to check if we can fit: current exercise + rest + next exercise
-      // If we can't fit that, we check if we can fit just the current exercise (as the last one)
       const timeNeededWithRest =
         exerciseDuration + restTimeSeconds + exerciseDuration;
       const timeNeededJustExercise = exerciseDuration;
-
-      // Check if we've used all unique exercises - if so, repeat the sequence
       const allUniqueExercisesUsed =
         usedExerciseIds.size >= allAvailableExercises.length;
 
-      let selected;
-      if (allUniqueExercisesUsed && selectedExercises.length > 0) {
-        // Repeat the sequence: cycle through already selected exercises in order
-        // But first check if we can fit an exercise + rest + another exercise
-        const timeNeededWithRest =
-          exerciseDuration + restTimeSeconds + exerciseDuration;
-        const timeNeededJustExercise = exerciseDuration;
+      let selected = null;
+      let isFinalExercise = false;
 
-        if (timeNeededWithRest <= remainingTime) {
-          // Can fit exercise + rest + another exercise, continue with sequence
-          const sequenceIndex = sequenceRepeatIndex % selectedExercises.length;
-          const exerciseFromSequence = selectedExercises[sequenceIndex];
-          selected = {
-            ...exerciseFromSequence,
-            id: exerciseFromSequence.id,
-          };
+      // Check if we need to repeat the sequence
+      if (allUniqueExercisesUsed && selectedExercises.length > 0) {
+        const sequenceResult = tryGetFromSequence(
+          selectedExercises,
+          sequenceRepeatIndex,
+          remainingTime,
+          exerciseDuration,
+          restTimeSeconds
+        );
+        if (sequenceResult) {
+          selected = sequenceResult.exercise;
+          isFinalExercise = sequenceResult.isFinal;
           sequenceRepeatIndex++;
-        } else if (timeNeededJustExercise <= remainingTime) {
-          // Can only fit one more exercise (last one, no rest after)
-          const sequenceIndex = sequenceRepeatIndex % selectedExercises.length;
-          const exerciseFromSequence = selectedExercises[sequenceIndex];
-          selected = {
-            ...exerciseFromSequence,
-            id: exerciseFromSequence.id,
-          };
-          const finalDuration = exerciseDurationSeconds || 60;
-          selectedExercises.push({
-            ...selected,
-            duration_seconds: finalDuration,
-            order: selectedExercises.length + 1,
-          });
-          currentTime += finalDuration;
-          break; // Last exercise added, done
         } else {
-          // Can't fit any more exercises
-          break;
+          break; // Can't fit any more exercises
         }
       } else {
         // Get available exercises (not yet used)
-        const getAvailableExercises = (exerciseList) => {
-          return exerciseList.filter((ex) => !usedExerciseIds.has(ex.id));
-        };
+        const getAvailableExercises = (exerciseList) =>
+          exerciseList.filter((ex) => !usedExerciseIds.has(ex.id));
 
-        // Get available exercises from both equipment and no-equipment pools
         let availableEquipment = [];
         let availableNoEquipment = [];
 
@@ -188,63 +221,37 @@ export const generateWorkout = async (
           availableEquipment = getAvailableExercises(shuffledEquipment);
           availableNoEquipment = getAvailableExercises(shuffledNoEquipment);
         } else {
-          // No equipment preference, use all exercises equally
           availableEquipment = getAvailableExercises(allAvailableExercises);
           availableNoEquipment = [];
         }
 
-        // Combine available exercises for filtering by time constraints
         const allAvailable = [...availableEquipment, ...availableNoEquipment];
 
-        // If no available exercises and we have selected exercises, repeat sequence
+        // If no available exercises, try repeating sequence
         if (allAvailable.length === 0 && selectedExercises.length > 0) {
-          // Check time constraints before repeating
-          const timeNeededWithRest =
-            exerciseDuration + restTimeSeconds + exerciseDuration;
-          const timeNeededJustExercise = exerciseDuration;
-
-          if (timeNeededWithRest <= remainingTime) {
-            // Can fit exercise + rest + another exercise, continue with sequence
-            const sequenceIndex =
-              sequenceRepeatIndex % selectedExercises.length;
-            const exerciseFromSequence = selectedExercises[sequenceIndex];
-            selected = {
-              ...exerciseFromSequence,
-              id: exerciseFromSequence.id,
-            };
+          const sequenceResult = tryGetFromSequence(
+            selectedExercises,
+            sequenceRepeatIndex,
+            remainingTime,
+            exerciseDuration,
+            restTimeSeconds
+          );
+          if (sequenceResult) {
+            selected = sequenceResult.exercise;
+            isFinalExercise = sequenceResult.isFinal;
             sequenceRepeatIndex++;
-          } else if (timeNeededJustExercise <= remainingTime) {
-            // Can only fit one more exercise (last one, no rest after)
-            const sequenceIndex =
-              sequenceRepeatIndex % selectedExercises.length;
-            const exerciseFromSequence = selectedExercises[sequenceIndex];
-            selected = {
-              ...exerciseFromSequence,
-              id: exerciseFromSequence.id,
-            };
-            const finalDuration = exerciseDurationSeconds || 60;
-            selectedExercises.push({
-              ...selected,
-              duration_seconds: finalDuration,
-              order: selectedExercises.length + 1,
-            });
-            currentTime += finalDuration;
-            break; // Last exercise added, done
           } else {
-            // Can't fit any more exercises
             break;
           }
         } else if (allAvailable.length === 0) {
-          // No exercises available at all - shouldn't happen, but break to avoid infinite loop
-          break;
+          break; // No exercises available at all
         } else {
-          // Create weighted selection pool: equipment exercises have 5x weight
-          // First filter by time constraints
+          // Filter by time constraints
           const suitableEquipment = availableEquipment.filter(
-            (ex) => timeNeededWithRest <= remainingTime
+            () => timeNeededWithRest <= remainingTime
           );
           const suitableNoEquipment = availableNoEquipment.filter(
-            (ex) => timeNeededWithRest <= remainingTime
+            () => timeNeededWithRest <= remainingTime
           );
 
           if (
@@ -252,13 +259,11 @@ export const generateWorkout = async (
             suitableNoEquipment.length === 0
           ) {
             // Can't fit exercise + rest + another exercise
-            // Check if we can fit just one more exercise (as the last one, no rest after it)
+            // Check if we can fit just one more exercise (as the last one)
             const exercisesThatFitWithoutRest = allAvailable.filter(
-              (ex) => timeNeededJustExercise <= remainingTime
+              () => timeNeededJustExercise <= remainingTime
             );
             if (exercisesThatFitWithoutRest.length > 0) {
-              // Create weighted pool for final exercise
-              const weightedPool = [];
               const finalEquipment = exercisesThatFitWithoutRest.filter(
                 (ex) => hasEquipment && equipmentFilter.includes(ex.equipment)
               );
@@ -268,77 +273,52 @@ export const generateWorkout = async (
                   ex.equipment === "none" ||
                   !equipmentFilter.includes(ex.equipment)
               );
-
-              // Add equipment exercises 10 times, no-equipment exercises once
-              for (let i = 0; i < 10; i++) {
-                weightedPool.push(...finalEquipment);
-              }
-              weightedPool.push(...finalNoEquipment);
-
-              if (weightedPool.length > 0) {
-                const randomIndex = Math.floor(
-                  Math.random() * weightedPool.length
-                );
-                selected = weightedPool[randomIndex];
-                const finalDuration = exerciseDurationSeconds || 60;
-                selectedExercises.push({
-                  ...selected,
-                  duration_seconds: finalDuration,
-                  order: selectedExercises.length + 1,
-                });
-                usedExerciseIds.add(selected.id);
-                currentTime += finalDuration;
-              }
+              const weightedPool = createWeightedPool(
+                finalEquipment,
+                finalNoEquipment
+              );
+              selected = selectFromWeightedPool(weightedPool);
+              isFinalExercise = true;
             }
-            break;
-          }
-
-          // Create weighted pool: equipment exercises appear 5x more often
-          const weightedPool = [];
-          // Add equipment exercises 5 times
-          for (let i = 0; i < 5; i++) {
-            weightedPool.push(...suitableEquipment);
-          }
-          // Add no-equipment exercises once
-          weightedPool.push(...suitableNoEquipment);
-
-          // Randomly select from weighted pool
-          if (weightedPool.length > 0) {
-            const randomIndex = Math.floor(Math.random() * weightedPool.length);
-            selected = weightedPool[randomIndex];
+            if (!selected) break;
+          } else {
+            // Create weighted pool and select
+            const weightedPool = createWeightedPool(
+              suitableEquipment,
+              suitableNoEquipment
+            );
+            selected = selectFromWeightedPool(weightedPool);
           }
         }
       }
 
-      // If we're repeating the sequence and selected is set, add it
-      if (allUniqueExercisesUsed && selected) {
-        const finalDuration = exerciseDurationSeconds || 60;
-        selectedExercises.push({
-          ...selected,
-          duration_seconds: finalDuration,
-          order: selectedExercises.length + 1,
-        });
-        // Don't add to usedExerciseIds since we're repeating
-        currentTime += finalDuration + restTimeSeconds;
-        continue; // Skip the rest of the loop and continue
+      // Add selected exercise
+      if (!selected) break;
+
+      if (isFinalExercise) {
+        currentTime = addFinalExercise(
+          selected,
+          selectedExercises,
+          exerciseDuration,
+          currentTime
+        );
+        if (!allUniqueExercisesUsed) {
+          usedExerciseIds.add(selected.id);
+        }
+        break; // Last exercise added, done
       }
 
-      // If selected is not set at this point, something went wrong
-      if (!selected) {
-        break;
+      // Regular exercise addition
+      const exerciseEntry = createExerciseEntry(
+        selected,
+        exerciseDuration,
+        selectedExercises.length + 1
+      );
+      selectedExercises.push(exerciseEntry);
+      if (!allUniqueExercisesUsed) {
+        usedExerciseIds.add(selected.id);
       }
-
-      // Use the user's chosen exercise duration
-      const finalDuration = exerciseDurationSeconds || 60;
-      selectedExercises.push({
-        ...selected,
-        duration_seconds: finalDuration,
-        order: selectedExercises.length + 1,
-      });
-      usedExerciseIds.add(selected.id);
-
-      // Add exercise time + rest time (rest is between this exercise and the next)
-      currentTime += finalDuration + restTimeSeconds;
+      currentTime += exerciseDuration + restTimeSeconds;
     }
 
     const workout = {
@@ -347,7 +327,7 @@ export const generateWorkout = async (
       totalTimeMinutes: Math.round(currentTime / 60),
       equipment,
       restTimeSeconds,
-      exerciseDurationSeconds: exerciseDurationSeconds || 60,
+      exerciseDurationSeconds: exerciseDuration,
       exerciseCount: selectedExercises.length,
       generatedAt: new Date().toISOString(),
     };
