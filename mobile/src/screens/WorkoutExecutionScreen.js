@@ -115,7 +115,7 @@ const WorkoutExecutionScreen = ({ route, navigation }) => {
     }
   };
 
-  // Play ping sound - audio with vibration fallback
+  // Play celebration sound - audio with vibration fallback
   const playCelebrationSound = async () => {
     try {
       celebrationPlayer.play();

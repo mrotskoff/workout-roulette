@@ -78,6 +78,44 @@ export const initDatabase = async () => {
 
 const insertSampleExercises = async (database) => {
   const sampleExercises = [
+    // Warmups
+    {
+      name: "Forward Fold",
+      category: "warmup",
+      description: "Standing forward bend stretch",
+      equipment: "none",
+    },
+    {
+      name: "Hip Circles",
+      category: "warmup",
+      description: "Circular hip mobility movement",
+      equipment: "none",
+    },
+    {
+      name: "Arm Circles",
+      category: "warmup",
+      description: "Circular arm movement for shoulder mobility",
+      equipment: "none",
+    },
+    {
+      name: "Cat-Cow Stretch",
+      category: "warmup",
+      description: "Spinal mobility movement",
+      equipment: "none",
+    },
+    {
+      name: "Donkey Kicks",
+      category: "warmup",
+      description: "Kneeling leg kick exercise",
+      equipment: "none",
+    },
+    {
+      name: "Inchworms",
+      category: "warmup",
+      description: "Walk hands out to plank position and back",
+      equipment: "none",
+    },
+
     // Cardio
     {
       name: "Jumping Jacks",
@@ -101,6 +139,36 @@ const insertSampleExercises = async (database) => {
       name: "Mountain Climbers",
       category: "cardio",
       description: "Core and cardio exercise",
+      equipment: "none",
+    },
+    {
+      name: "Jump Squats",
+      category: "cardio",
+      description: "Explosive squat jumps",
+      equipment: "none",
+    },
+    {
+      name: "Butt Kicks",
+      category: "cardio",
+      description: "Running in place kicking heels to glutes",
+      equipment: "none",
+    },
+    {
+      name: "Star Jumps",
+      category: "cardio",
+      description: "Jumping jacks with arms and legs spread wide",
+      equipment: "none",
+    },
+    {
+      name: "Sprint in Place",
+      category: "cardio",
+      description: "Fast running in place",
+      equipment: "none",
+    },
+    {
+      name: "Jump Rope",
+      category: "cardio",
+      description: "Simulated jump rope movement",
       equipment: "none",
     },
 
@@ -183,172 +251,36 @@ const insertSampleExercises = async (database) => {
       description: "Band around ankles, stretch band and transfer weight",
       equipment: "resistance-bands",
     },
-
-    // Flexibility
-    {
-      name: "Stretching",
-      category: "flexibility",
-      description: "General stretching",
-      equipment: "none",
-    },
-
-    // Core
-    {
-      name: "Crunches",
-      category: "core",
-      description: "Abdominal crunches",
-      equipment: "none",
-    },
-    {
-      name: "Leg Raises",
-      category: "core",
-      description: "Lower ab exercise",
-      equipment: "none",
-    },
-    {
-      name: "Russian Twists",
-      category: "core",
-      description: "Rotational core exercise",
-      equipment: "none",
-    },
-    {
-      name: "Bicycle Crunches",
-      category: "core",
-      description: "Alternating knee-to-elbow crunches",
-      equipment: "none",
-    },
-    {
-      name: "Side Plank",
-      category: "core",
-      description: "Lateral core strength hold",
-      equipment: "none",
-    },
-    {
-      name: "Side Plank Dips",
-      category: "core",
-      description: "Lateral core strength dips",
-      equipment: "none",
-    },
-    {
-      name: "Dead Bug",
-      category: "core",
-      description: "Core stability exercise on back",
-      equipment: "none",
-    },
-    {
-      name: "Plank",
-      category: "core",
-      description: "Full body core isometric hold",
-      equipment: "none",
-    },
-    {
-      name: "Kettlebell Turkish Get-Up",
-      category: "core",
-      description: "Full body movement with kettlebell",
-      equipment: "kettlebells",
-    },
-    {
-      name: "V-Ups",
-      category: "core",
-      description: "Lift legs and torso, touch toes",
-      equipment: "none",
-    },
-    {
-      name: "Pencil-Ups",
-      category: "core",
-      description: "Lift legs straight up like a pencil",
-      equipment: "none",
-    },
-    {
-      name: "Oblique Ankle Touches",
-      category: "core",
-      description: "lie on back, alternate touching ankles",
-      equipment: "none",
-    },
-    {
-      name: "Straight Leg Sit-Ups",
-      category: "core",
-      description: "Sit up with legs straight",
-      equipment: "none",
-    },
-    {
-      name: "Cherry Pickers",
-      category: "core",
-      description: "Lie on back, lift legs and alternate touching toes",
-      equipment: "none",
-    },
-
-    // Balance
-    {
-      name: "Tree Pose",
-      category: "balance",
-      description: "Yoga balance pose",
-      equipment: "none",
-    },
     {
       name: "Single Leg Deadlift",
-      category: "balance",
+      category: "strength",
       description: "Balance and hamstring exercise",
       equipment: "none",
     },
     {
       name: "Dumbbell Single Leg Deadlift",
-      category: "balance",
+      category: "strength",
       description: "Single leg deadlift with weight",
       equipment: "dumbbells",
     },
     {
       name: "Kettlebell Single Leg Deadlift",
-      category: "balance",
+      category: "strength",
       description: "Single leg deadlift with kettlebell",
       equipment: "kettlebells",
     },
-
-    // More Cardio
-    {
-      name: "Jump Squats",
-      category: "cardio",
-      description: "Explosive squat jumps",
-      equipment: "none",
-    },
-    {
-      name: "Butt Kicks",
-      category: "cardio",
-      description: "Running in place kicking heels to glutes",
-      equipment: "none",
-    },
-    {
-      name: "Star Jumps",
-      category: "cardio",
-      description: "Jumping jacks with arms and legs spread wide",
-      equipment: "none",
-    },
-    {
-      name: "Sprint in Place",
-      category: "cardio",
-      description: "Fast running in place",
-      equipment: "none",
-    },
     {
       name: "Dumbbell Thrusters",
-      category: "cardio",
+      category: "strength",
       description: "Squat to overhead press with dumbbells",
       equipment: "dumbbells",
     },
     {
       name: "Kettlebell Snatches",
-      category: "cardio",
+      category: "strength",
       description: "Explosive overhead movement",
       equipment: "kettlebells",
     },
-    {
-      name: "Band Jumping Jacks",
-      category: "cardio",
-      description: "Jumping jacks with resistance band overhead",
-      equipment: "resistance-bands",
-    },
-
-    // More Strength
     {
       name: "Dips",
       category: "strength",
@@ -428,103 +360,89 @@ const insertSampleExercises = async (database) => {
       equipment: "kettlebells",
     },
     {
-      name: "Band Pull-Aparts",
+      name: "Kettlebell Turkish Get-Up",
       category: "strength",
-      description: "Shoulder and upper back exercise",
-      equipment: "resistance-bands",
-    },
-    {
-      name: "Band Bicep Curls",
-      category: "strength",
-      description: "Bicep curls with resistance band",
-      equipment: "resistance-bands",
-    },
-    {
-      name: "Band Squats",
-      category: "strength",
-      description: "Squats with resistance band",
-      equipment: "resistance-bands",
+      description: "Full body movement with kettlebell",
+      equipment: "kettlebells",
     },
 
-    // More Flexibility
+    // Core
     {
-      name: "Forward Fold",
-      category: "flexibility",
-      description: "Standing forward bend stretch",
+      name: "Crunches",
+      category: "core",
+      description: "Abdominal crunches",
       equipment: "none",
     },
     {
-      name: "Hip Circles",
-      category: "flexibility",
-      description: "Circular hip mobility movement",
+      name: "Leg Raises",
+      category: "core",
+      description: "Lower ab exercise",
       equipment: "none",
     },
     {
-      name: "Arm Circles",
-      category: "flexibility",
-      description: "Circular arm movement for shoulder mobility",
+      name: "Russian Twists",
+      category: "core",
+      description: "Rotational core exercise",
       equipment: "none",
     },
     {
-      name: "Quad Stretch",
-      category: "flexibility",
-      description: "Standing quadricep stretch",
+      name: "Bicycle Crunches",
+      category: "core",
+      description: "Alternating knee-to-elbow crunches",
       equipment: "none",
     },
     {
-      name: "Hamstring Stretch",
-      category: "flexibility",
-      description: "Seated or standing hamstring stretch",
+      name: "Side Plank",
+      category: "core",
+      description: "Lateral core strength hold",
       equipment: "none",
     },
     {
-      name: "Shoulder Stretch",
-      category: "flexibility",
-      description: "Cross-body shoulder stretch",
+      name: "Side Plank Dips",
+      category: "core",
+      description: "Lateral core strength dips",
       equipment: "none",
     },
     {
-      name: "Cat-Cow Stretch",
-      category: "flexibility",
-      description: "Spinal mobility movement",
+      name: "Dead Bug",
+      category: "core",
+      description: "Core stability exercise on back",
       equipment: "none",
     },
     {
-      name: "Child's Pose",
-      category: "flexibility",
-      description: "Restorative yoga pose",
-      equipment: "none",
-    },
-
-    // General
-    {
-      name: "Jump Rope",
-      category: "general",
-      description: "Simulated jump rope movement",
+      name: "Plank",
+      category: "core",
+      description: "Full body core isometric hold",
       equipment: "none",
     },
     {
-      name: "Bear Crawl",
-      category: "general",
-      description: "Quadrupedal movement exercise",
+      name: "V-Ups",
+      category: "core",
+      description: "Lift legs and torso, touch toes",
       equipment: "none",
     },
     {
-      name: "Crab Walk",
-      category: "general",
-      description: "Reverse tabletop movement",
+      name: "Pencil-Ups",
+      category: "core",
+      description: "Lift legs straight up like a pencil",
       equipment: "none",
     },
     {
-      name: "Donkey Kicks",
-      category: "general",
-      description: "Kneeling leg kick exercise",
+      name: "Oblique Ankle Touches",
+      category: "core",
+      description: "lie on back, alternate touching ankles",
       equipment: "none",
     },
     {
-      name: "Inchworms",
-      category: "general",
-      description: "Walk hands out to plank position and back",
+      name: "Straight Leg Sit-Ups",
+      category: "core",
+      description: "Sit up with legs straight",
+      equipment: "none",
+    },
+    {
+      name: "Cherry Pickers",
+      category: "core",
+      description: "Lie on back, lift legs and alternate touching toes",
       equipment: "none",
     },
   ];

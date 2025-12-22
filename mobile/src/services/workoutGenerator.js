@@ -134,52 +134,160 @@ export const generateWorkout = async (
       );
     }
 
-    // Filter by categories if specified
-    if (categories && categories.length > 0) {
-      exercises = exercises.filter((ex) => categories.includes(ex.category));
-    }
+    // Don't filter by user categories - we have our own category logic
+    // But we need to ensure we have warmup, core, strength, and cardio exercises
 
-    if (exercises.length === 0) {
-      throw new Error("No exercises found matching the criteria");
-    }
-
-    // Separate exercises by equipment preference
-    let equipmentExercises = [];
-    let noEquipmentExercises = [];
-    if (hasEquipment) {
-      equipmentExercises = exercises.filter((ex) =>
-        equipmentFilter.includes(ex.equipment)
-      );
-      noEquipmentExercises = exercises.filter(
+    // Separate exercises by category and filter by equipment
+    const filterByEquipment = (exerciseList) => {
+      // Only include exercises that use selected equipment or no equipment
+      if (!hasEquipment) {
+        return exerciseList.filter((ex) => ex.equipment === "none");
+      }
+      return exerciseList.filter(
         (ex) =>
-          ex.equipment === "none" || !equipmentFilter.includes(ex.equipment)
+          ex.equipment === "none" || equipmentFilter.includes(ex.equipment)
       );
-    } else {
-      equipmentExercises = exercises;
-      noEquipmentExercises = [];
+    };
+
+    const warmupExercises = filterByEquipment(
+      exercises.filter((ex) => ex.category === "warmup")
+    );
+    const coreExercises = filterByEquipment(
+      exercises.filter((ex) => ex.category === "core")
+    );
+    const strengthCardioExercises = filterByEquipment(
+      exercises.filter(
+        (ex) => ex.category === "strength" || ex.category === "cardio"
+      )
+    );
+
+    // Check if we have enough exercises
+    if (warmupExercises.length < 2) {
+      throw new Error(
+        "Not enough warmup exercises available. Need at least 2 warmup exercises with no equipment or matching equipment."
+      );
+    }
+    if (coreExercises.length === 0 && strengthCardioExercises.length === 0) {
+      throw new Error(
+        "No core, strength, or cardio exercises available with no equipment or matching the selected equipment."
+      );
     }
 
-    // Shuffle both arrays
-    const shuffledEquipment = [...equipmentExercises].sort(
-      () => Math.random() - 0.5
+    // Helper: Separate by equipment preference within a category
+    const separateByEquipmentPreference = (exerciseList) => {
+      if (!hasEquipment) {
+        return {
+          withEquipment: [],
+          withoutEquipment: exerciseList,
+        };
+      }
+      return {
+        withEquipment: exerciseList.filter((ex) =>
+          equipmentFilter.includes(ex.equipment)
+        ),
+        withoutEquipment: exerciseList.filter(
+          (ex) =>
+            ex.equipment === "none" || !equipmentFilter.includes(ex.equipment)
+        ),
+      };
+    };
+
+    // Shuffle all category pools
+    const shuffle = (arr) => [...arr].sort(() => Math.random() - 0.5);
+    const warmupPool = separateByEquipmentPreference(warmupExercises);
+    const corePool = separateByEquipmentPreference(coreExercises);
+    const strengthCardioPool = separateByEquipmentPreference(
+      strengthCardioExercises
     );
-    const shuffledNoEquipment = [...noEquipmentExercises].sort(
-      () => Math.random() - 0.5
-    );
+
+    const shuffledWarmup = {
+      withEquipment: shuffle(warmupPool.withEquipment),
+      withoutEquipment: shuffle(warmupPool.withoutEquipment),
+    };
+    const shuffledCore = {
+      withEquipment: shuffle(corePool.withEquipment),
+      withoutEquipment: shuffle(corePool.withoutEquipment),
+    };
+    const shuffledStrengthCardio = {
+      withEquipment: shuffle(strengthCardioPool.withEquipment),
+      withoutEquipment: shuffle(strengthCardioPool.withoutEquipment),
+    };
+
+    // Helper: Select from a pool with equipment preference
+    const selectFromPool = (pool, usedIds) => {
+      const availableEquipment = pool.withEquipment.filter(
+        (ex) => !usedIds.has(ex.id)
+      );
+      const availableNoEquipment = pool.withoutEquipment.filter(
+        (ex) => !usedIds.has(ex.id)
+      );
+      const allAvailable = [...availableEquipment, ...availableNoEquipment];
+      if (allAvailable.length === 0) return null;
+
+      const weightedPool = createWeightedPool(
+        availableEquipment,
+        availableNoEquipment
+      );
+      return selectFromWeightedPool(weightedPool);
+    };
 
     // Track used exercise IDs to avoid repeats
     const usedExerciseIds = new Set();
-    const allAvailableExercises = [
-      ...shuffledEquipment,
-      ...shuffledNoEquipment,
-    ];
-
-    // Build workout by selecting exercises until we reach the target time
     const selectedExercises = [];
     let currentTime = 0;
     let attempts = 0;
     const maxAttempts = 1000;
     let sequenceRepeatIndex = 0;
+
+    // Step 1: Add 2 warmup exercises first
+    const warmupTimeNeeded = 2 * exerciseDuration + restTimeSeconds; // 2 exercises + 1 rest
+    if (warmupTimeNeeded > totalTimeSeconds) {
+      throw new Error(
+        `Not enough time for warmup exercises. Need at least ${warmupTimeNeeded} seconds.`
+      );
+    }
+
+    for (let i = 0; i < 2; i++) {
+      const selected = selectFromPool(shuffledWarmup, usedExerciseIds);
+      if (!selected) {
+        throw new Error("Not enough unique warmup exercises available");
+      }
+      const exerciseEntry = createExerciseEntry(
+        selected,
+        exerciseDuration,
+        selectedExercises.length + 1
+      );
+      selectedExercises.push(exerciseEntry);
+      usedExerciseIds.add(selected.id);
+      currentTime += exerciseDuration;
+      if (i < 1) {
+        // Add rest time between warmup exercises
+        currentTime += restTimeSeconds;
+      }
+    }
+    // Add rest time after last warmup exercise (before first post-warmup exercise)
+    // This rest time is between the last warmup and the first post-warmup exercise
+    // We'll add it when we add the first post-warmup exercise, but we need to account for it
+    // in the time calculation. Actually, we add it as part of the first post-warmup exercise's rest time.
+
+    // Step 2: For remaining exercises, maintain 25% core, 75% strength/cardio
+    let postWarmupExerciseCount = 0;
+
+    // Helper: Get all available exercises from a category pool
+    const getAllAvailableFromPool = (pool, usedIds) => {
+      return [
+        ...pool.withEquipment.filter((ex) => !usedIds.has(ex.id)),
+        ...pool.withoutEquipment.filter((ex) => !usedIds.has(ex.id)),
+      ];
+    };
+
+    // Helper: Determine which category to select from based on 25/75 ratio
+    const shouldSelectCore = (postWarmupCount) => {
+      // Maintain 25% core, 75% strength/cardio
+      // After 3 strength/cardio exercises, we should have 1 core exercise
+      // So every 4th exercise (1, 5, 9, etc.) should be core
+      return postWarmupCount % 4 === 0;
+    };
 
     while (currentTime < totalTimeSeconds && attempts < maxAttempts) {
       attempts++;
@@ -187,50 +295,31 @@ export const generateWorkout = async (
       const timeNeededWithRest =
         exerciseDuration + restTimeSeconds + exerciseDuration;
       const timeNeededJustExercise = exerciseDuration;
+
+      // Get all available exercises from both pools
+      const availableCore = getAllAvailableFromPool(
+        shuffledCore,
+        usedExerciseIds
+      );
+      const availableStrengthCardio = getAllAvailableFromPool(
+        shuffledStrengthCardio,
+        usedExerciseIds
+      );
+      const allAvailable = [...availableCore, ...availableStrengthCardio];
+
+      // Check if we've used all unique exercises - if so, repeat the sequence
       const allUniqueExercisesUsed =
-        usedExerciseIds.size >= allAvailableExercises.length;
+        allAvailable.length === 0 && selectedExercises.length > 0;
 
       let selected = null;
       let isFinalExercise = false;
 
-      // Check if we need to repeat the sequence
-      if (allUniqueExercisesUsed && selectedExercises.length > 0) {
-        const sequenceResult = tryGetFromSequence(
-          selectedExercises,
-          sequenceRepeatIndex,
-          remainingTime,
-          exerciseDuration,
-          restTimeSeconds
-        );
-        if (sequenceResult) {
-          selected = sequenceResult.exercise;
-          isFinalExercise = sequenceResult.isFinal;
-          sequenceRepeatIndex++;
-        } else {
-          break; // Can't fit any more exercises
-        }
-      } else {
-        // Get available exercises (not yet used)
-        const getAvailableExercises = (exerciseList) =>
-          exerciseList.filter((ex) => !usedExerciseIds.has(ex.id));
-
-        let availableEquipment = [];
-        let availableNoEquipment = [];
-
-        if (hasEquipment && shuffledEquipment.length > 0) {
-          availableEquipment = getAvailableExercises(shuffledEquipment);
-          availableNoEquipment = getAvailableExercises(shuffledNoEquipment);
-        } else {
-          availableEquipment = getAvailableExercises(allAvailableExercises);
-          availableNoEquipment = [];
-        }
-
-        const allAvailable = [...availableEquipment, ...availableNoEquipment];
-
-        // If no available exercises, try repeating sequence
-        if (allAvailable.length === 0 && selectedExercises.length > 0) {
+      if (allUniqueExercisesUsed) {
+        // Repeat sequence from post-warmup exercises only
+        const postWarmupExercises = selectedExercises.slice(2); // Skip first 2 warmup exercises
+        if (postWarmupExercises.length > 0) {
           const sequenceResult = tryGetFromSequence(
-            selectedExercises,
+            postWarmupExercises,
             sequenceRepeatIndex,
             remainingTime,
             exerciseDuration,
@@ -241,54 +330,73 @@ export const generateWorkout = async (
             isFinalExercise = sequenceResult.isFinal;
             sequenceRepeatIndex++;
           } else {
-            break;
+            break; // Can't fit any more exercises
           }
-        } else if (allAvailable.length === 0) {
-          break; // No exercises available at all
         } else {
-          // Filter by time constraints
-          const suitableEquipment = availableEquipment.filter(
-            () => timeNeededWithRest <= remainingTime
-          );
-          const suitableNoEquipment = availableNoEquipment.filter(
-            () => timeNeededWithRest <= remainingTime
-          );
+          break; // No post-warmup exercises to repeat
+        }
+      } else if (allAvailable.length === 0) {
+        break; // No exercises available at all
+      } else {
+        // Determine which category to select from (25% core, 75% strength/cardio)
+        const selectCore = shouldSelectCore(postWarmupExerciseCount);
 
-          if (
-            suitableEquipment.length === 0 &&
-            suitableNoEquipment.length === 0
-          ) {
-            // Can't fit exercise + rest + another exercise
-            // Check if we can fit just one more exercise (as the last one)
-            const exercisesThatFitWithoutRest = allAvailable.filter(
-              () => timeNeededJustExercise <= remainingTime
+        // Get candidate pool based on category
+        let candidatePool = selectCore
+          ? availableCore
+          : availableStrengthCardio;
+
+        // If the preferred category has no available exercises, use the other
+        if (candidatePool.length === 0) {
+          candidatePool = selectCore ? availableStrengthCardio : availableCore;
+        }
+
+        // Filter by time constraints
+        const suitableExercises = candidatePool.filter(
+          () => timeNeededWithRest <= remainingTime
+        );
+
+        if (suitableExercises.length === 0) {
+          // Can't fit exercise + rest + another exercise
+          // Check if we can fit just one more exercise (as the last one)
+          const exercisesThatFitWithoutRest = candidatePool.filter(
+            () => timeNeededJustExercise <= remainingTime
+          );
+          if (exercisesThatFitWithoutRest.length > 0) {
+            // Separate by equipment preference for final exercise
+            const finalEquipment = exercisesThatFitWithoutRest.filter(
+              (ex) => hasEquipment && equipmentFilter.includes(ex.equipment)
             );
-            if (exercisesThatFitWithoutRest.length > 0) {
-              const finalEquipment = exercisesThatFitWithoutRest.filter(
-                (ex) => hasEquipment && equipmentFilter.includes(ex.equipment)
-              );
-              const finalNoEquipment = exercisesThatFitWithoutRest.filter(
-                (ex) =>
-                  !hasEquipment ||
-                  ex.equipment === "none" ||
-                  !equipmentFilter.includes(ex.equipment)
-              );
-              const weightedPool = createWeightedPool(
-                finalEquipment,
-                finalNoEquipment
-              );
-              selected = selectFromWeightedPool(weightedPool);
-              isFinalExercise = true;
-            }
-            if (!selected) break;
-          } else {
-            // Create weighted pool and select
+            const finalNoEquipment = exercisesThatFitWithoutRest.filter(
+              (ex) =>
+                !hasEquipment ||
+                ex.equipment === "none" ||
+                !equipmentFilter.includes(ex.equipment)
+            );
             const weightedPool = createWeightedPool(
-              suitableEquipment,
-              suitableNoEquipment
+              finalEquipment,
+              finalNoEquipment
             );
             selected = selectFromWeightedPool(weightedPool);
+            isFinalExercise = true;
           }
+          if (!selected) break;
+        } else {
+          // Separate by equipment preference
+          const suitableEquipment = suitableExercises.filter(
+            (ex) => hasEquipment && equipmentFilter.includes(ex.equipment)
+          );
+          const suitableNoEquipment = suitableExercises.filter(
+            (ex) =>
+              !hasEquipment ||
+              ex.equipment === "none" ||
+              !equipmentFilter.includes(ex.equipment)
+          );
+          const weightedPool = createWeightedPool(
+            suitableEquipment,
+            suitableNoEquipment
+          );
+          selected = selectFromWeightedPool(weightedPool);
         }
       }
 
@@ -309,6 +417,8 @@ export const generateWorkout = async (
       }
 
       // Regular exercise addition
+      // If we got here and isFinalExercise is false, we selected from suitableExercises,
+      // which means timeNeededWithRest <= remainingTime, so we can fit another exercise after this one
       const exerciseEntry = createExerciseEntry(
         selected,
         exerciseDuration,
@@ -318,6 +428,12 @@ export const generateWorkout = async (
       if (!allUniqueExercisesUsed) {
         usedExerciseIds.add(selected.id);
       }
+      postWarmupExerciseCount++;
+
+      // Add exercise time + rest time (rest is between this exercise and the next)
+      // For the first post-warmup exercise, this rest time is between last warmup and first post-warmup
+      // We always add rest time here because we only get here if we selected from suitableExercises,
+      // which means we can fit another exercise after this one
       currentTime += exerciseDuration + restTimeSeconds;
     }
 
