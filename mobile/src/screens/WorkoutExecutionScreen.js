@@ -33,9 +33,9 @@ const WorkoutExecutionScreen = ({ route, navigation }) => {
   const [pingSoundUri, setPingSoundUri] = useState(null);
   const [celebrationSoundUri, setCelebrationSoundUri] = useState(null);
 
-  // Create audio player - hook must always be called
-  const pingPlayer = useAudioPlayer(pingSoundUri || "");
-  const celebrationPlayer = useAudioPlayer(celebrationSoundUri || "");
+  // Create audio player - hook must always be called, use null instead of empty string
+  const pingPlayer = useAudioPlayer(pingSoundUri || null);
+  const celebrationPlayer = useAudioPlayer(celebrationSoundUri || null);
 
   const currentExercise = workout.exercises[currentExerciseIndex];
   const nextExercise = workout.exercises[currentExerciseIndex + 1];
@@ -91,37 +91,68 @@ const WorkoutExecutionScreen = ({ route, navigation }) => {
 
   // Update player source when URI becomes available
   useEffect(() => {
-    if (pingSoundUri && pingPlayer) {
-      // The useAudioPlayer hook should automatically update when the source changes,
-      // but we can try to ensure it's ready by checking if replace method exists
-      if (pingPlayer.replace && typeof pingPlayer.replace === "function") {
-        try {
-          pingPlayer.replace(pingSoundUri);
-        } catch (error) {
-          console.error("Error updating audio player source:", error);
-        }
+    if (pingSoundUri && pingPlayer && pingPlayer.replace) {
+      try {
+        pingPlayer.replace(pingSoundUri);
+      } catch (error) {
+        console.error("Error updating ping audio player source:", error);
       }
     }
   }, [pingSoundUri, pingPlayer]);
 
+  // Update celebration player source when URI becomes available
+  useEffect(() => {
+    if (celebrationSoundUri && celebrationPlayer && celebrationPlayer.replace) {
+      try {
+        celebrationPlayer.replace(celebrationSoundUri);
+      } catch (error) {
+        console.error("Error updating celebration audio player source:", error);
+      }
+    }
+  }, [celebrationSoundUri, celebrationPlayer]);
+
   // Play ping sound - audio with vibration fallback
   const playPing = async () => {
-    try {
-      pingPlayer.play();
-    } catch (error) {
-      // Fallback to vibration on error
-      console.error("Error playing ping sound:", error);
+    // Only try to play audio if we have a valid URI and player
+    if (pingSoundUri && pingPlayer) {
+      try {
+        // Ensure the player has the correct source before playing
+        if (pingPlayer.replace) {
+          pingPlayer.replace(pingSoundUri);
+          // Small delay to ensure the source is set
+          await new Promise((resolve) => setTimeout(resolve, 50));
+        }
+        pingPlayer.play();
+      } catch (error) {
+        // Fallback to vibration on error
+        console.error("Error playing ping sound:", error);
+        Vibration.vibrate(100);
+      }
+    } else {
+      // Fallback to vibration if audio not loaded
       Vibration.vibrate(100);
     }
   };
 
   // Play celebration sound - audio with vibration fallback
   const playCelebrationSound = async () => {
-    try {
-      celebrationPlayer.play();
-    } catch (error) {
-      // Fallback to vibration on error
-      console.error("Error playing celebration sound:", error);
+    // Only try to play audio if we have a valid URI and player
+    if (celebrationSoundUri && celebrationPlayer) {
+      try {
+        // Ensure the player has the correct source before playing
+        if (celebrationPlayer.replace) {
+          celebrationPlayer.replace(celebrationSoundUri);
+          // Small delay to ensure the source is set
+          await new Promise((resolve) => setTimeout(resolve, 50));
+        }
+        celebrationPlayer.play();
+      } catch (error) {
+        // Fallback to vibration on error
+        console.error("Error playing celebration sound:", error);
+        Vibration.vibrate(300);
+      }
+    } else {
+      // Fallback to vibration if audio not loaded
       Vibration.vibrate(300);
     }
   };
@@ -619,7 +650,7 @@ const styles = StyleSheet.create({
     width: "100%",
   },
   exerciseName: {
-    fontSize: 24,
+    fontSize: 35,
     fontWeight: "bold",
     color: "#333",
     marginBottom: 5,
@@ -675,8 +706,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: 40,
   },
   timerCircle: {
-    width: 250,
-    height: 250,
+    width: 200,
+    height: 200,
     borderRadius: 125,
     backgroundColor: "#2196F3",
     justifyContent: "center",
@@ -784,7 +815,7 @@ const styles = StyleSheet.create({
     letterSpacing: 1,
   },
   restNextExerciseName: {
-    fontSize: 24,
+    fontSize: 35,
     fontWeight: "bold",
     color: "#333",
     marginBottom: 5,

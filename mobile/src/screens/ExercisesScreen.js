@@ -16,6 +16,7 @@ import {
   updateExercise,
   deleteExercise,
   getEquipmentOptions,
+  getCategoryOptions,
   resetDatabase,
 } from "../database";
 
@@ -26,7 +27,7 @@ const ExercisesScreen = ({ navigation }) => {
   const [editingExercise, setEditingExercise] = useState(null);
   const [formData, setFormData] = useState({
     name: "",
-    category: "general",
+    category: "warmup",
     description: "",
     equipment: "none",
   });
@@ -36,19 +37,17 @@ const ExercisesScreen = ({ navigation }) => {
     "kettlebells",
     "resistance-bands",
   ]);
-
-  const categories = [
+  const [categories, setCategories] = useState([
+    "warmup",
     "cardio",
     "strength",
-    "flexibility",
     "core",
-    "balance",
-    "general",
-  ];
+  ]);
 
   useEffect(() => {
     loadExercises();
     loadEquipmentOptions();
+    loadCategoryOptions();
   }, []);
 
   const loadEquipmentOptions = async () => {
@@ -58,6 +57,22 @@ const ExercisesScreen = ({ navigation }) => {
     } catch (error) {
       console.error("Error loading equipment options:", error);
       // Keep default options on error
+    }
+  };
+
+  const loadCategoryOptions = async () => {
+    try {
+      const options = await getCategoryOptions();
+      if (options && options.length > 0) {
+        setCategories(options);
+        // If formData.category is not in the loaded categories, set it to the first one
+        if (!options.includes(formData.category)) {
+          setFormData({ ...formData, category: options[0] });
+        }
+      }
+    } catch (error) {
+      console.error("Error loading category options:", error);
+      // Keep default categories on error
     }
   };
 
@@ -99,7 +114,7 @@ const ExercisesScreen = ({ navigation }) => {
     setEditingExercise(null);
     setFormData({
       name: "",
-      category: "general",
+      category: categories.length > 0 ? categories[0] : "warmup",
       description: "",
       equipment: "none",
     });
@@ -108,9 +123,14 @@ const ExercisesScreen = ({ navigation }) => {
 
   const openEditModal = (exercise) => {
     setEditingExercise(exercise);
+    // Ensure the exercise's category is in the available categories, otherwise use first available
+    const exerciseCategory = exercise.category || categories[0] || "warmup";
+    const validCategory = categories.includes(exerciseCategory)
+      ? exerciseCategory
+      : categories[0] || "warmup";
     setFormData({
       name: exercise.name || "",
-      category: exercise.category || "general",
+      category: validCategory,
       description: exercise.description || "",
       equipment: exercise.equipment || "none",
     });

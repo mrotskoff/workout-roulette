@@ -620,3 +620,16 @@ export const getEquipmentOptions = async () => {
   }
   return ["none", ...uniqueEquipment];
 };
+
+// Get all unique category options from exercises
+export const getCategoryOptions = async () => {
+  await ensureInitialized();
+  const database = await getDb();
+  const result = await database.getAllAsync(
+    "SELECT DISTINCT category FROM exercises ORDER BY category"
+  );
+  // Extract category values
+  const categoryList = result.map((row) => row.category);
+  const uniqueCategories = [...new Set(categoryList)];
+  return uniqueCategories.sort();
+};
