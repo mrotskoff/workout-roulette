@@ -15,6 +15,7 @@ import {
 } from "react-native-safe-area-context";
 import { useAudioPlayer } from "expo-audio";
 import { Asset } from "expo-asset";
+import { activateKeepAwake, deactivateKeepAwake } from "expo-keep-awake";
 
 const WorkoutExecutionScreen = ({ route, navigation }) => {
   const { workout } = route.params;
@@ -258,6 +259,20 @@ const WorkoutExecutionScreen = ({ route, navigation }) => {
       fadeAnim.setValue(1);
     }
   }, [isRunning, timeRemaining, isResting, restTimeRemaining]);
+
+  // Keep screen awake during workout
+  useEffect(() => {
+    if (workoutStarted && !isComplete) {
+      activateKeepAwake();
+    } else {
+      deactivateKeepAwake();
+    }
+
+    // Cleanup: deactivate when component unmounts
+    return () => {
+      deactivateKeepAwake();
+    };
+  }, [workoutStarted, isComplete]);
 
   const handleExerciseComplete = () => {
     if (currentExerciseIndex < totalExercises - 1) {
