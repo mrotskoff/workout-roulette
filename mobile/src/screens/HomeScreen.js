@@ -13,7 +13,9 @@ import { generateWorkout as generateWorkoutLocal } from "../services/workoutGene
 import { getEquipmentOptions } from "../database";
 
 const HomeScreen = ({ navigation }) => {
-  const [totalTime, setTotalTime] = useState("30");
+  const [numCircuits, setNumCircuits] = useState("3");
+  const [exercisesPerCircuit, setExercisesPerCircuit] = useState("4");
+  const [repetitionsPerCircuit, setRepetitionsPerCircuit] = useState("2");
   const [exerciseDuration, setExerciseDuration] = useState("60");
   const [restTime, setRestTime] = useState("10");
   const [equipment, setEquipment] = useState(["none"]);
@@ -53,20 +55,32 @@ const HomeScreen = ({ navigation }) => {
   };
 
   const generateWorkout = async () => {
-    if (!totalTime || parseInt(totalTime) <= 0) {
-      Alert.alert("Error", "Please enter a valid workout time");
+    const numCircuitsValue = parseInt(numCircuits);
+    const exercisesPerCircuitValue = parseInt(exercisesPerCircuit);
+    const repetitionsPerCircuitValue = parseInt(repetitionsPerCircuit);
+
+    if (!numCircuitsValue || numCircuitsValue <= 0) {
+      Alert.alert("Error", "Please enter a valid number of circuits");
+      return;
+    }
+    if (!exercisesPerCircuitValue || exercisesPerCircuitValue <= 0) {
+      Alert.alert("Error", "Please enter a valid number of exercises per circuit");
+      return;
+    }
+    if (!repetitionsPerCircuitValue || repetitionsPerCircuitValue <= 0) {
+      Alert.alert("Error", "Please enter a valid number of repetitions per circuit");
       return;
     }
 
     setLoading(true);
     try {
       const equipmentParam = equipment.length === 0 ? ["none"] : equipment;
-      const totalTimeSeconds = parseInt(totalTime) * 60;
-
       const exerciseDurationSeconds = parseInt(exerciseDuration) || 60;
       const restTimeSeconds = parseInt(restTime) || 0;
       const workout = await generateWorkoutLocal(
-        totalTimeSeconds,
+        numCircuitsValue,
+        exercisesPerCircuitValue,
+        repetitionsPerCircuitValue,
         equipmentParam,
         restTimeSeconds,
         null,
@@ -93,13 +107,35 @@ const HomeScreen = ({ navigation }) => {
         </Text>
 
         <View style={styles.section}>
-          <Text style={styles.label}>Total Workout Time (minutes)</Text>
+          <Text style={styles.label}>Number of Circuits</Text>
           <TextInput
             style={styles.input}
-            value={totalTime}
-            onChangeText={setTotalTime}
+            value={numCircuits}
+            onChangeText={setNumCircuits}
             keyboardType="numeric"
-            placeholder="30"
+            placeholder="3"
+          />
+        </View>
+
+        <View style={styles.section}>
+          <Text style={styles.label}>Exercises Per Circuit</Text>
+          <TextInput
+            style={styles.input}
+            value={exercisesPerCircuit}
+            onChangeText={setExercisesPerCircuit}
+            keyboardType="numeric"
+            placeholder="4"
+          />
+        </View>
+
+        <View style={styles.section}>
+          <Text style={styles.label}>Repetitions Per Circuit</Text>
+          <TextInput
+            style={styles.input}
+            value={repetitionsPerCircuit}
+            onChangeText={setRepetitionsPerCircuit}
+            keyboardType="numeric"
+            placeholder="2"
           />
         </View>
 

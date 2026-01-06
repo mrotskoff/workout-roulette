@@ -27,6 +27,14 @@ const WorkoutScreen = ({ route, navigation }) => {
             <Text style={styles.statValue}>{workout.exerciseCount}</Text>
             <Text style={styles.statLabel}>Exercises</Text>
           </View>
+          {workout.numCircuits && (
+            <View style={styles.stat}>
+              <Text style={styles.statValue}>
+                {workout.numCircuits} × {workout.repetitionsPerCircuit}
+              </Text>
+              <Text style={styles.statLabel}>Circuits</Text>
+            </View>
+          )}
         </View>
       </View>
 

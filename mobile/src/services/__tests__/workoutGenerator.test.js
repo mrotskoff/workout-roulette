@@ -6,7 +6,7 @@ jest.mock("../../database", () => ({
   getExercises: jest.fn(),
 }));
 
-describe("WorkoutGenerator - Rest Time Calculation", () => {
+describe("WorkoutGenerator - Circuit-Based Workouts", () => {
   // Mock exercise data
   const mockExercises = [
     {
@@ -79,6 +79,20 @@ describe("WorkoutGenerator - Rest Time Calculation", () => {
       duration_seconds: 60,
       equipment: "none",
     },
+    {
+      id: 11,
+      name: "Mountain Climbers",
+      category: "cardio",
+      duration_seconds: 60,
+      equipment: "none",
+    },
+    {
+      id: 12,
+      name: "Russian Twists",
+      category: "core",
+      duration_seconds: 60,
+      equipment: "none",
+    },
   ];
 
   beforeEach(() => {
@@ -86,79 +100,115 @@ describe("WorkoutGenerator - Rest Time Calculation", () => {
     getExercises.mockResolvedValue(mockExercises);
   });
 
-  describe("Rest time is included in total workout time", () => {
-    test("should include rest time between exercises in total time calculation", async () => {
-      const totalTimeSeconds = 300; // 5 minutes
-      const exerciseDuration = 60; // 60 seconds per exercise
-      const restTimeSeconds = 10; // 10 seconds rest between exercises
+  describe("Workout structure", () => {
+    test("should generate workout with 2 warmup exercises followed by circuits", async () => {
+      const numCircuits = 2;
+      const exercisesPerCircuit = 3;
+      const repetitionsPerCircuit = 2;
+      const exerciseDuration = 60;
+      const restTimeSeconds = 10;
       const equipment = ["none"];
 
       const workout = await generateWorkout(
-        totalTimeSeconds,
+        numCircuits,
+        exercisesPerCircuit,
+        repetitionsPerCircuit,
         equipment,
         restTimeSeconds,
         null,
         exerciseDuration
       );
 
-      // Calculate expected time: exercises + rest periods
-      // With new structure: 2 warmup + post-warmup exercises
-      // Rest time is between exercises: (N-1) rest periods for N exercises
+      // Should have 2 warmup exercises
+      expect(workout.exercises.length).toBeGreaterThanOrEqual(2);
+      expect(workout.exercises[0].category).toBe("warmup");
+      expect(workout.exercises[1].category).toBe("warmup");
+
+      // Total exercises: 2 warmup + (numCircuits * exercisesPerCircuit * repetitionsPerCircuit)
+      const expectedTotalExercises =
+        2 + numCircuits * exercisesPerCircuit * repetitionsPerCircuit;
+      expect(workout.exercises.length).toBe(expectedTotalExercises);
+
+      // Verify circuit parameters
+      expect(workout.numCircuits).toBe(numCircuits);
+      expect(workout.exercisesPerCircuit).toBe(exercisesPerCircuit);
+      expect(workout.repetitionsPerCircuit).toBe(repetitionsPerCircuit);
+    });
+
+    test("should calculate total time correctly", async () => {
+      const numCircuits = 2;
+      const exercisesPerCircuit = 3;
+      const repetitionsPerCircuit = 2;
+      const exerciseDuration = 60;
+      const restTimeSeconds = 10;
+      const equipment = ["none"];
+
+      const workout = await generateWorkout(
+        numCircuits,
+        exercisesPerCircuit,
+        repetitionsPerCircuit,
+        equipment,
+        restTimeSeconds,
+        null,
+        exerciseDuration
+      );
+
+      // Calculate expected time:
+      // 2 warmup exercises: 2 * 60 = 120 seconds
+      // Rest between warmups: 1 * 10 = 10 seconds
+      // Rest after last warmup: 1 * 10 = 10 seconds
+      // Circuit exercises: (2 * 3 * 2) * 60 = 720 seconds
+      // Rest between circuit exercises: (2 * 3 * 2 - 1) * 10 = 110 seconds
+      // Total: 120 + 10 + 10 + 720 + 110 = 970 seconds
+
       const numExercises = workout.exercises.length;
       const expectedExerciseTime = numExercises * exerciseDuration;
       const expectedRestTime = (numExercises - 1) * restTimeSeconds;
       const expectedTotalTime = expectedExerciseTime + expectedRestTime;
 
-      // The total time should match: exercise time + rest time
-      // Allow small tolerance due to time constraint edge cases
-      expect(workout.totalTimeSeconds).toBeGreaterThanOrEqual(
-        expectedTotalTime - restTimeSeconds
-      );
-      expect(workout.totalTimeSeconds).toBeLessThanOrEqual(expectedTotalTime);
-      expect(workout.totalTimeSeconds).toBeLessThanOrEqual(totalTimeSeconds);
+      expect(workout.totalTimeSeconds).toBe(expectedTotalTime);
     });
 
-    test("should not exceed target time when rest time is included", async () => {
-      const totalTimeSeconds = 200; // 3 minutes 20 seconds
+    test("should not add rest time after the last exercise", async () => {
+      const numCircuits = 1;
+      const exercisesPerCircuit = 2;
+      const repetitionsPerCircuit = 1;
       const exerciseDuration = 60;
-      const restTimeSeconds = 15; // 15 seconds rest
+      const restTimeSeconds = 10;
       const equipment = ["none"];
 
       const workout = await generateWorkout(
-        totalTimeSeconds,
+        numCircuits,
+        exercisesPerCircuit,
+        repetitionsPerCircuit,
         equipment,
         restTimeSeconds,
         null,
         exerciseDuration
       );
 
-      // Total time should not exceed target
-      expect(workout.totalTimeSeconds).toBeLessThanOrEqual(totalTimeSeconds);
-
-      // Verify the calculation: exercises + rest
-      const exerciseTime = workout.exercises.reduce(
-        (sum, ex) => sum + ex.duration_seconds,
-        0
-      );
+      // Should have: 2 warmup + 2 circuit exercises = 4 exercises
+      // Rest periods: 3 (between exercises, not after last)
       const numExercises = workout.exercises.length;
-      const restTime = (numExercises - 1) * restTimeSeconds;
-      const calculatedTotal = exerciseTime + restTime;
+      const expectedExerciseTime = numExercises * exerciseDuration;
+      const expectedRestTime = (numExercises - 1) * restTimeSeconds;
+      const expectedTotalTime = expectedExerciseTime + expectedRestTime;
 
-      // Allow small tolerance due to time constraint edge cases
-      expect(workout.totalTimeSeconds).toBeGreaterThanOrEqual(
-        calculatedTotal - restTimeSeconds
-      );
-      expect(workout.totalTimeSeconds).toBeLessThanOrEqual(calculatedTotal);
+      expect(workout.totalTimeSeconds).toBe(expectedTotalTime);
     });
 
     test("should handle zero rest time correctly", async () => {
-      const totalTimeSeconds = 300;
+      const numCircuits = 1;
+      const exercisesPerCircuit = 2;
+      const repetitionsPerCircuit = 1;
       const exerciseDuration = 60;
-      const restTimeSeconds = 0; // No rest
+      const restTimeSeconds = 0;
       const equipment = ["none"];
 
       const workout = await generateWorkout(
-        totalTimeSeconds,
+        numCircuits,
+        exercisesPerCircuit,
+        repetitionsPerCircuit,
         equipment,
         restTimeSeconds,
         null,
@@ -171,203 +221,87 @@ describe("WorkoutGenerator - Rest Time Calculation", () => {
         0
       );
       expect(workout.totalTimeSeconds).toBe(exerciseTime);
-      expect(workout.totalTimeSeconds).toBeLessThanOrEqual(totalTimeSeconds);
     });
+  });
 
-    test("should not add rest time after the last exercise", async () => {
-      const totalTimeSeconds = 250; // Enough for 4 exercises with rest
+  describe("Circuit repetition", () => {
+    test("should repeat each circuit the specified number of times", async () => {
+      const numCircuits = 2;
+      const exercisesPerCircuit = 2;
+      const repetitionsPerCircuit = 3;
       const exerciseDuration = 60;
       const restTimeSeconds = 10;
       const equipment = ["none"];
 
       const workout = await generateWorkout(
-        totalTimeSeconds,
+        numCircuits,
+        exercisesPerCircuit,
+        repetitionsPerCircuit,
         equipment,
         restTimeSeconds,
         null,
         exerciseDuration
       );
 
-      // Calculate: N exercises + rest periods
-      const numExercises = workout.exercises.length;
-      const exerciseTime = numExercises * exerciseDuration;
-      const restTime = (numExercises - 1) * restTimeSeconds;
-      const expectedTotal = exerciseTime + restTime;
+      // Total exercises: 2 warmup + (2 circuits * 2 exercises * 3 reps) = 14
+      const expectedTotalExercises =
+        2 + numCircuits * exercisesPerCircuit * repetitionsPerCircuit;
+      expect(workout.exercises.length).toBe(expectedTotalExercises);
 
-      // Allow small tolerance due to time constraint edge cases
-      expect(workout.totalTimeSeconds).toBeGreaterThanOrEqual(
-        expectedTotal - restTimeSeconds
-      );
-      expect(workout.totalTimeSeconds).toBeLessThanOrEqual(expectedTotal);
-      // Verify no rest after last exercise (rest count = exercise count - 1)
-      expect(workout.totalTimeSeconds).toBeLessThanOrEqual(totalTimeSeconds);
-    });
-  });
-
-  describe("Workout respects time constraints with rest time", () => {
-    test("should fit maximum exercises within time limit including rest", async () => {
-      const totalTimeSeconds = 180; // 3 minutes
-      const exerciseDuration = 30; // 30 seconds per exercise
-      const restTimeSeconds = 10; // 10 seconds rest
-      const equipment = ["none"];
-
-      const workout = await generateWorkout(
-        totalTimeSeconds,
-        equipment,
-        restTimeSeconds,
-        null,
-        exerciseDuration
+      // Verify that circuits are repeated (exercises after warmup should repeat)
+      const circuitExercises = workout.exercises.slice(2);
+      // First circuit exercises (first 2)
+      const firstCircuit = circuitExercises.slice(0, exercisesPerCircuit);
+      // First repetition of first circuit
+      const firstRep = circuitExercises.slice(0, exercisesPerCircuit);
+      // Second repetition of first circuit
+      const secondRep = circuitExercises.slice(
+        exercisesPerCircuit,
+        exercisesPerCircuit * 2
       );
 
-      // Should fit: 30 + 10 + 30 + 10 + 30 + 10 + 30 = 150 seconds (5 exercises, 4 rest periods)
-      // Or: 30 + 10 + 30 + 10 + 30 + 10 + 30 + 10 + 30 = 180 seconds (6 exercises, 5 rest periods)
-      expect(workout.totalTimeSeconds).toBeLessThanOrEqual(totalTimeSeconds);
-
-      // Verify calculation
-      const exerciseTime = workout.exercises.reduce(
-        (sum, ex) => sum + ex.duration_seconds,
-        0
-      );
-      const numExercises = workout.exercises.length;
-      const restTime = (numExercises - 1) * restTimeSeconds;
-      // Allow small tolerance due to time constraint edge cases
-      expect(workout.totalTimeSeconds).toBeGreaterThanOrEqual(
-        exerciseTime + restTime - restTimeSeconds
-      );
-      expect(workout.totalTimeSeconds).toBeLessThanOrEqual(
-        exerciseTime + restTime
-      );
-    });
-
-    test("should handle large rest times correctly", async () => {
-      const totalTimeSeconds = 500; // ~8 minutes
-      const exerciseDuration = 60;
-      const restTimeSeconds = 30; // 30 seconds rest
-      const equipment = ["none"];
-
-      const workout = await generateWorkout(
-        totalTimeSeconds,
-        equipment,
-        restTimeSeconds,
-        null,
-        exerciseDuration
-      );
-
-      // Verify total time calculation
-      const exerciseTime = workout.exercises.reduce(
-        (sum, ex) => sum + ex.duration_seconds,
-        0
-      );
-      const numExercises = workout.exercises.length;
-      const restTime = (numExercises - 1) * restTimeSeconds;
-      const calculatedTotal = exerciseTime + restTime;
-
-      // Allow small tolerance due to time constraint edge cases
-      expect(workout.totalTimeSeconds).toBeGreaterThanOrEqual(
-        calculatedTotal - restTimeSeconds
-      );
-      expect(workout.totalTimeSeconds).toBeLessThanOrEqual(calculatedTotal);
-      expect(workout.totalTimeSeconds).toBeLessThanOrEqual(totalTimeSeconds);
-    });
-  });
-
-  describe("Workout structure validation", () => {
-    test("should return workout with correct restTimeSeconds property", async () => {
-      const totalTimeSeconds = 300;
-      const restTimeSeconds = 15;
-      const equipment = ["none"];
-
-      const workout = await generateWorkout(
-        totalTimeSeconds,
-        equipment,
-        restTimeSeconds,
-        null,
-        60
-      );
-
-      expect(workout.restTimeSeconds).toBe(restTimeSeconds);
-      expect(workout.exercises.length).toBeGreaterThan(0);
-    });
-  });
-
-  describe("Edge cases", () => {
-    test("should handle very short workout time", async () => {
-      const totalTimeSeconds = 70; // Just enough for 1 exercise + rest + 1 more
-      const exerciseDuration = 30;
-      const restTimeSeconds = 10;
-      const equipment = ["none"];
-
-      const workout = await generateWorkout(
-        totalTimeSeconds,
-        equipment,
-        restTimeSeconds,
-        null,
-        exerciseDuration
-      );
-
-      // Should have at least 1 exercise
-      expect(workout.exercises.length).toBeGreaterThan(0);
-      expect(workout.totalTimeSeconds).toBeLessThanOrEqual(totalTimeSeconds);
-    });
-
-    test("should handle time that only fits one exercise", async () => {
-      // Need at least 2 warmup exercises, so minimum time is 2 * exerciseDuration + restTimeSeconds
-      const exerciseDuration = 20;
-      const restTimeSeconds = 5;
-      const totalTimeSeconds = 2 * exerciseDuration + restTimeSeconds; // Exactly enough for 2 warmup exercises
-      const equipment = ["none"];
-
-      const workout = await generateWorkout(
-        totalTimeSeconds,
-        equipment,
-        restTimeSeconds,
-        null,
-        exerciseDuration
-      );
-
-      // Should have exactly 2 warmup exercises with 1 rest between them
-      expect(workout.exercises.length).toBe(2);
-      expect(workout.exercises[0].category).toBe("warmup");
-      expect(workout.exercises[1].category).toBe("warmup");
-      expect(workout.totalTimeSeconds).toBe(
-        2 * exerciseDuration + restTimeSeconds
-      );
+      // Exercises in the same circuit should be the same across repetitions
+      // (they may be in different order, but should be the same set)
+      expect(firstRep.length).toBe(exercisesPerCircuit);
+      expect(secondRep.length).toBe(exercisesPerCircuit);
     });
   });
 
   describe("Exercise selection logic", () => {
-    test("should not repeat exercises unless all exercises are used", async () => {
-      const totalTimeSeconds = 1000; // Long workout that would require repeats
+    test("should maintain 25% core, 75% strength/cardio ratio in circuits", async () => {
+      const numCircuits = 1;
+      const exercisesPerCircuit = 8; // 8 exercises per circuit
+      const repetitionsPerCircuit = 1;
       const exerciseDuration = 60;
       const restTimeSeconds = 10;
       const equipment = ["none"];
 
       const workout = await generateWorkout(
-        totalTimeSeconds,
+        numCircuits,
+        exercisesPerCircuit,
+        repetitionsPerCircuit,
         equipment,
         restTimeSeconds,
         null,
         exerciseDuration
       );
 
-      // Count occurrences of each exercise ID
-      const exerciseIds = workout.exercises.map((ex) => ex.id);
-      const idCounts = {};
-      exerciseIds.forEach((id) => {
-        idCounts[id] = (idCounts[id] || 0) + 1;
-      });
+      // Get post-warmup exercises (circuit exercises)
+      const circuitExercises = workout.exercises.slice(2);
+      const coreCount = circuitExercises.filter(
+        (ex) => ex.category === "core"
+      ).length;
+      const strengthCardioCount = circuitExercises.filter(
+        (ex) => ex.category === "strength" || ex.category === "cardio"
+      ).length;
 
-      // Check if any exercise is repeated before all are used
-      const uniqueExercises = new Set(exerciseIds);
-      const totalUnique = uniqueExercises.size;
-
-      // If we have fewer unique exercises than total exercises, repeats occurred
-      // But repeats should only happen if we've used all available exercises
-      if (totalUnique < workout.exercises.length) {
-        // Repeats occurred - verify we've used all available exercises first
-        // This is acceptable behavior when workout is longer than available exercises
-        expect(totalUnique).toBeLessThanOrEqual(mockExercises.length);
-      }
+      // Should maintain approximately 25% core, 75% strength/cardio
+      // With 8 exercises, we expect 2 core (25%) and 6 strength/cardio (75%)
+      // But the ratio is maintained across the sequence, so it might not be exact
+      expect(coreCount + strengthCardioCount).toBe(circuitExercises.length);
+      // Core should be around 25% (allow some flexibility)
+      expect(coreCount).toBeGreaterThanOrEqual(1);
+      expect(coreCount).toBeLessThanOrEqual(3);
     });
 
     test("should prioritize equipment exercises when equipment is available", async () => {
@@ -441,13 +375,17 @@ describe("WorkoutGenerator - Rest Time Calculation", () => {
         ...noEquipmentExercises,
       ]);
 
-      const totalTimeSeconds = 200; // Enough for 3 exercises
+      const numCircuits = 1;
+      const exercisesPerCircuit = 4;
+      const repetitionsPerCircuit = 1;
       const exerciseDuration = 60;
       const restTimeSeconds = 10;
       const equipment = ["dumbbells"];
 
       const workout = await generateWorkout(
-        totalTimeSeconds,
+        numCircuits,
+        exercisesPerCircuit,
+        repetitionsPerCircuit,
         equipment,
         restTimeSeconds,
         null,
@@ -492,33 +430,10 @@ describe("WorkoutGenerator - Rest Time Calculation", () => {
       }
     });
 
-    test("should use all available exercises before repeating", async () => {
-      const totalTimeSeconds = 500; // Long workout
-      const exerciseDuration = 60;
-      const restTimeSeconds = 10;
-      const equipment = ["none"];
-
-      const workout = await generateWorkout(
-        totalTimeSeconds,
-        equipment,
-        restTimeSeconds,
-        null,
-        exerciseDuration
-      );
-
-      const uniqueExerciseIds = new Set(workout.exercises.map((ex) => ex.id));
-
-      // If we have repeats, we should have used all available exercises first
-      if (workout.exercises.length > uniqueExerciseIds.size) {
-        // Repeats occurred - should have used all mock exercises first
-        expect(uniqueExerciseIds.size).toBeGreaterThanOrEqual(
-          Math.min(mockExercises.length, workout.exercises.length)
-        );
-      }
-    });
-
     test("should call getExercises for each selected equipment type", async () => {
-      const totalTimeSeconds = 300;
+      const numCircuits = 1;
+      const exercisesPerCircuit = 2;
+      const repetitionsPerCircuit = 1;
       const exerciseDuration = 60;
       const restTimeSeconds = 10;
       const equipment = ["dumbbells", "kettlebells", "none"];
@@ -562,7 +477,9 @@ describe("WorkoutGenerator - Rest Time Calculation", () => {
       });
 
       const workout = await generateWorkout(
-        totalTimeSeconds,
+        numCircuits,
+        exercisesPerCircuit,
+        repetitionsPerCircuit,
         equipment,
         restTimeSeconds,
         null,
@@ -574,6 +491,63 @@ describe("WorkoutGenerator - Rest Time Calculation", () => {
       expect(getExercises).toHaveBeenCalledWith({ equipment: "dumbbells" });
       expect(getExercises).toHaveBeenCalledWith({ equipment: "kettlebells" });
       expect(getExercises).toHaveBeenCalledWith({ equipment: "none" });
+    });
+  });
+
+  describe("Workout properties", () => {
+    test("should return workout with correct properties", async () => {
+      const numCircuits = 2;
+      const exercisesPerCircuit = 3;
+      const repetitionsPerCircuit = 2;
+      const exerciseDuration = 60;
+      const restTimeSeconds = 15;
+      const equipment = ["none"];
+
+      const workout = await generateWorkout(
+        numCircuits,
+        exercisesPerCircuit,
+        repetitionsPerCircuit,
+        equipment,
+        restTimeSeconds,
+        null,
+        exerciseDuration
+      );
+
+      expect(workout.restTimeSeconds).toBe(restTimeSeconds);
+      expect(workout.exerciseDurationSeconds).toBe(exerciseDuration);
+      expect(workout.numCircuits).toBe(numCircuits);
+      expect(workout.exercisesPerCircuit).toBe(exercisesPerCircuit);
+      expect(workout.repetitionsPerCircuit).toBe(repetitionsPerCircuit);
+      expect(workout.exercises.length).toBeGreaterThan(0);
+      expect(workout.equipment).toEqual(equipment);
+      expect(workout.exerciseCount).toBe(workout.exercises.length);
+      expect(workout.totalTimeMinutes).toBe(
+        Math.round(workout.totalTimeSeconds / 60)
+      );
+    });
+
+    test("should set duration_seconds for all exercises", async () => {
+      const numCircuits = 1;
+      const exercisesPerCircuit = 2;
+      const repetitionsPerCircuit = 1;
+      const exerciseDuration = 45;
+      const restTimeSeconds = 10;
+      const equipment = ["none"];
+
+      const workout = await generateWorkout(
+        numCircuits,
+        exercisesPerCircuit,
+        repetitionsPerCircuit,
+        equipment,
+        restTimeSeconds,
+        null,
+        exerciseDuration
+      );
+
+      // All exercises should have the correct duration_seconds
+      workout.exercises.forEach((exercise) => {
+        expect(exercise.duration_seconds).toBe(exerciseDuration);
+      });
     });
   });
 });

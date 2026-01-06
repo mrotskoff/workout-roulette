@@ -85,14 +85,18 @@ const tryGetFromSequence = (
 };
 
 export const generateWorkout = async (
-  totalTimeSeconds,
+  numCircuits,
+  exercisesPerCircuit,
+  repetitionsPerCircuit,
   equipment,
   restTimeSeconds = 0,
   categories = null,
   exerciseDurationSeconds = 60
 ) => {
   console.log("[DEBUG] generateWorkout called:", {
-    totalTimeSeconds,
+    numCircuits,
+    exercisesPerCircuit,
+    repetitionsPerCircuit,
     equipment,
     restTimeSeconds,
     categories,
@@ -235,18 +239,8 @@ export const generateWorkout = async (
     const usedExerciseIds = new Set();
     const selectedExercises = [];
     let currentTime = 0;
-    let attempts = 0;
-    const maxAttempts = 1000;
-    let sequenceRepeatIndex = 0;
 
     // Step 1: Add 2 warmup exercises first
-    const warmupTimeNeeded = 2 * exerciseDuration + restTimeSeconds; // 2 exercises + 1 rest
-    if (warmupTimeNeeded > totalTimeSeconds) {
-      throw new Error(
-        `Not enough time for warmup exercises. Need at least ${warmupTimeNeeded} seconds.`
-      );
-    }
-
     for (let i = 0; i < 2; i++) {
       const selected = selectFromPool(shuffledWarmup, usedExerciseIds);
       if (!selected) {
@@ -265,12 +259,12 @@ export const generateWorkout = async (
         currentTime += restTimeSeconds;
       }
     }
-    // Add rest time after last warmup exercise (before first post-warmup exercise)
-    // This rest time is between the last warmup and the first post-warmup exercise
-    // We'll add it when we add the first post-warmup exercise, but we need to account for it
-    // in the time calculation. Actually, we add it as part of the first post-warmup exercise's rest time.
+    // Add rest time after last warmup exercise (before first circuit exercise)
+    currentTime += restTimeSeconds;
 
-    // Step 2: For remaining exercises, maintain 25% core, 75% strength/cardio
+    // Step 2: Generate circuits
+    // For each circuit, generate exercisesPerCircuit exercises
+    // Then repeat each circuit repetitionsPerCircuit times
     let postWarmupExerciseCount = 0;
 
     // Helper: Get all available exercises from a category pool
@@ -289,104 +283,79 @@ export const generateWorkout = async (
       return postWarmupCount % 4 === 0;
     };
 
-    while (currentTime < totalTimeSeconds && attempts < maxAttempts) {
-      attempts++;
-      const remainingTime = totalTimeSeconds - currentTime;
-      const timeNeededWithRest =
-        exerciseDuration + restTimeSeconds + exerciseDuration;
-      const timeNeededJustExercise = exerciseDuration;
+    // Store circuit definitions (exercises for each circuit)
+    const circuitDefinitions = [];
 
-      // Get all available exercises from both pools
-      const availableCore = getAllAvailableFromPool(
-        shuffledCore,
-        usedExerciseIds
-      );
-      const availableStrengthCardio = getAllAvailableFromPool(
-        shuffledStrengthCardio,
-        usedExerciseIds
-      );
-      const allAvailable = [...availableCore, ...availableStrengthCardio];
+    // Step 2a: Generate circuit definitions
+    for (let circuitIndex = 0; circuitIndex < numCircuits; circuitIndex++) {
+      const circuitExercises = [];
 
-      // Check if we've used all unique exercises - if so, repeat the sequence
-      const allUniqueExercisesUsed =
-        allAvailable.length === 0 && selectedExercises.length > 0;
-
-      let selected = null;
-      let isFinalExercise = false;
-
-      if (allUniqueExercisesUsed) {
-        // Repeat sequence from post-warmup exercises only
-        const postWarmupExercises = selectedExercises.slice(2); // Skip first 2 warmup exercises
-        if (postWarmupExercises.length > 0) {
-          const sequenceResult = tryGetFromSequence(
-            postWarmupExercises,
-            sequenceRepeatIndex,
-            remainingTime,
-            exerciseDuration,
-            restTimeSeconds
-          );
-          if (sequenceResult) {
-            selected = sequenceResult.exercise;
-            isFinalExercise = sequenceResult.isFinal;
-            sequenceRepeatIndex++;
-          } else {
-            break; // Can't fit any more exercises
-          }
-        } else {
-          break; // No post-warmup exercises to repeat
-        }
-      } else if (allAvailable.length === 0) {
-        break; // No exercises available at all
-      } else {
-        // Determine which category to select from (25% core, 75% strength/cardio)
-        const selectCore = shouldSelectCore(postWarmupExerciseCount);
-
-        // Get candidate pool based on category
-        let candidatePool = selectCore
-          ? availableCore
-          : availableStrengthCardio;
-
-        // If the preferred category has no available exercises, use the other
-        if (candidatePool.length === 0) {
-          candidatePool = selectCore ? availableStrengthCardio : availableCore;
-        }
-
-        // Filter by time constraints
-        const suitableExercises = candidatePool.filter(
-          () => timeNeededWithRest <= remainingTime
+      for (
+        let exerciseIndex = 0;
+        exerciseIndex < exercisesPerCircuit;
+        exerciseIndex++
+      ) {
+        // Get all available exercises from both pools
+        const availableCore = getAllAvailableFromPool(
+          shuffledCore,
+          usedExerciseIds
         );
+        const availableStrengthCardio = getAllAvailableFromPool(
+          shuffledStrengthCardio,
+          usedExerciseIds
+        );
+        const allAvailable = [...availableCore, ...availableStrengthCardio];
 
-        if (suitableExercises.length === 0) {
-          // Can't fit exercise + rest + another exercise
-          // Check if we can fit just one more exercise (as the last one)
-          const exercisesThatFitWithoutRest = candidatePool.filter(
-            () => timeNeededJustExercise <= remainingTime
-          );
-          if (exercisesThatFitWithoutRest.length > 0) {
-            // Separate by equipment preference for final exercise
-            const finalEquipment = exercisesThatFitWithoutRest.filter(
-              (ex) => hasEquipment && equipmentFilter.includes(ex.equipment)
-            );
-            const finalNoEquipment = exercisesThatFitWithoutRest.filter(
-              (ex) =>
-                !hasEquipment ||
-                ex.equipment === "none" ||
-                !equipmentFilter.includes(ex.equipment)
-            );
-            const weightedPool = createWeightedPool(
-              finalEquipment,
-              finalNoEquipment
-            );
-            selected = selectFromWeightedPool(weightedPool);
-            isFinalExercise = true;
+        // Check if we've used all unique exercises - if so, repeat the sequence
+        const allUniqueExercisesUsed =
+          allAvailable.length === 0 && circuitExercises.length > 0;
+
+        let selected = null;
+
+        if (allUniqueExercisesUsed) {
+          // Repeat sequence from this circuit's exercises
+          if (circuitExercises.length > 0) {
+            const sequenceIndex = exerciseIndex % circuitExercises.length;
+            selected = { ...circuitExercises[sequenceIndex] };
+          } else {
+            // If this is the first exercise and we've run out, use from previous circuits
+            const previousExercises = circuitDefinitions.flat();
+            if (previousExercises.length > 0) {
+              const sequenceIndex = exerciseIndex % previousExercises.length;
+              selected = { ...previousExercises[sequenceIndex] };
+            }
           }
-          if (!selected) break;
+        } else if (allAvailable.length === 0) {
+          // No exercises available - use from previous circuits or this circuit
+          const previousExercises = circuitDefinitions.flat();
+          if (previousExercises.length > 0) {
+            const sequenceIndex = exerciseIndex % previousExercises.length;
+            selected = { ...previousExercises[sequenceIndex] };
+          } else if (circuitExercises.length > 0) {
+            const sequenceIndex = exerciseIndex % circuitExercises.length;
+            selected = { ...circuitExercises[sequenceIndex] };
+          }
         } else {
+          // Determine which category to select from (25% core, 75% strength/cardio)
+          const selectCore = shouldSelectCore(postWarmupExerciseCount);
+
+          // Get candidate pool based on category
+          let candidatePool = selectCore
+            ? availableCore
+            : availableStrengthCardio;
+
+          // If the preferred category has no available exercises, use the other
+          if (candidatePool.length === 0) {
+            candidatePool = selectCore
+              ? availableStrengthCardio
+              : availableCore;
+          }
+
           // Separate by equipment preference
-          const suitableEquipment = suitableExercises.filter(
+          const suitableEquipment = candidatePool.filter(
             (ex) => hasEquipment && equipmentFilter.includes(ex.equipment)
           );
-          const suitableNoEquipment = suitableExercises.filter(
+          const suitableNoEquipment = candidatePool.filter(
             (ex) =>
               !hasEquipment ||
               ex.equipment === "none" ||
@@ -398,43 +367,52 @@ export const generateWorkout = async (
           );
           selected = selectFromWeightedPool(weightedPool);
         }
-      }
 
-      // Add selected exercise
-      if (!selected) break;
+        if (!selected) {
+          throw new Error("Failed to select exercise for circuit");
+        }
 
-      if (isFinalExercise) {
-        currentTime = addFinalExercise(
-          selected,
-          selectedExercises,
-          exerciseDuration,
-          currentTime
-        );
+        // Store exercise in circuit definition
+        circuitExercises.push(selected);
         if (!allUniqueExercisesUsed) {
           usedExerciseIds.add(selected.id);
         }
-        break; // Last exercise added, done
+        postWarmupExerciseCount++;
       }
 
-      // Regular exercise addition
-      // If we got here and isFinalExercise is false, we selected from suitableExercises,
-      // which means timeNeededWithRest <= remainingTime, so we can fit another exercise after this one
-      const exerciseEntry = createExerciseEntry(
-        selected,
-        exerciseDuration,
-        selectedExercises.length + 1
-      );
-      selectedExercises.push(exerciseEntry);
-      if (!allUniqueExercisesUsed) {
-        usedExerciseIds.add(selected.id);
-      }
-      postWarmupExerciseCount++;
+      circuitDefinitions.push(circuitExercises);
+    }
 
-      // Add exercise time + rest time (rest is between this exercise and the next)
-      // For the first post-warmup exercise, this rest time is between last warmup and first post-warmup
-      // We always add rest time here because we only get here if we selected from suitableExercises,
-      // which means we can fit another exercise after this one
-      currentTime += exerciseDuration + restTimeSeconds;
+    // Step 2b: Build workout by repeating each circuit
+    for (let circuitIndex = 0; circuitIndex < numCircuits; circuitIndex++) {
+      const circuitExercises = circuitDefinitions[circuitIndex];
+
+      for (let rep = 0; rep < repetitionsPerCircuit; rep++) {
+        for (
+          let exerciseIndex = 0;
+          exerciseIndex < circuitExercises.length;
+          exerciseIndex++
+        ) {
+          const exercise = circuitExercises[exerciseIndex];
+          const exerciseEntry = createExerciseEntry(
+            exercise,
+            exerciseDuration,
+            selectedExercises.length + 1
+          );
+          selectedExercises.push(exerciseEntry);
+          currentTime += exerciseDuration;
+
+          // Add rest time between exercises (but not after the last exercise of the last rep of the last circuit)
+          const isLastExerciseOfLastRepOfLastCircuit =
+            circuitIndex === numCircuits - 1 &&
+            rep === repetitionsPerCircuit - 1 &&
+            exerciseIndex === circuitExercises.length - 1;
+
+          if (!isLastExerciseOfLastRepOfLastCircuit) {
+            currentTime += restTimeSeconds;
+          }
+        }
+      }
     }
 
     const workout = {
@@ -445,6 +423,9 @@ export const generateWorkout = async (
       restTimeSeconds,
       exerciseDurationSeconds: exerciseDuration,
       exerciseCount: selectedExercises.length,
+      numCircuits,
+      exercisesPerCircuit,
+      repetitionsPerCircuit,
       generatedAt: new Date().toISOString(),
     };
 
