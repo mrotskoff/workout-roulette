@@ -19,49 +19,109 @@ const WorkoutScreen = ({ route, navigation }) => {
       <View style={styles.header}>
         <Text style={styles.headerTitle}>Your Workout</Text>
         <View style={styles.statsContainer}>
-          <View style={styles.stat}>
-            <Text style={styles.statValue}>{workout.totalTimeMinutes}</Text>
-            <Text style={styles.statLabel}>Minutes</Text>
-          </View>
-          <View style={styles.stat}>
-            <Text style={styles.statValue}>{workout.exerciseCount}</Text>
-            <Text style={styles.statLabel}>Exercises</Text>
-          </View>
           {workout.numCircuits && (
             <View style={styles.stat}>
               <Text style={styles.statValue}>
-                {workout.numCircuits} × {workout.repetitionsPerCircuit}
+                {workout.numCircuits} × {workout.exercisesPerCircuit} ×{" "}
+                {workout.repetitionsPerCircuit}
               </Text>
               <Text style={styles.statLabel}>Circuits</Text>
             </View>
           )}
+          <View style={styles.stat}>
+            <Text style={styles.statValue}>{workout.exerciseCount}</Text>
+            <Text style={styles.statLabel}>Exercises</Text>
+          </View>
+          <View style={styles.stat}>
+            <Text style={styles.statValue}>{workout.totalTimeMinutes}</Text>
+            <Text style={styles.statLabel}>Minutes</Text>
+          </View>
         </View>
       </View>
 
       <View style={styles.exercisesContainer}>
-        {workout.exercises.map((exercise, index) => (
-          <View key={index} style={styles.exerciseCard}>
-            <View style={styles.exerciseHeader}>
-              <Text style={styles.exerciseNumber}>{exercise.order}</Text>
-              <View style={styles.exerciseInfo}>
-                <Text style={styles.exerciseName}>{exercise.name}</Text>
-                <Text style={styles.exerciseCategory}>{exercise.category}</Text>
+        {workout.exercises.map((exercise, index) => {
+          // Calculate circuit information for this exercise
+          const getCircuitInfo = (exerciseIndex) => {
+            if (!workout.numCircuits) {
+              return null; // Not a circuit-based workout
+            }
+
+            // First 2 exercises are warmup
+            if (exerciseIndex < 2) {
+              return {
+                circuitNumber: null,
+                setNumber: null,
+                exerciseNumberInSet: null,
+                isWarmup: true,
+              };
+            }
+
+            const exercisesPerCircuit = workout.exercisesPerCircuit || 1;
+            const repetitionsPerCircuit = workout.repetitionsPerCircuit || 1;
+            const totalExercisesPerCircuit =
+              exercisesPerCircuit * repetitionsPerCircuit;
+
+            // Calculate which circuit this exercise belongs to
+            const exercisesAfterWarmup = exerciseIndex - 2;
+            const circuitIndex = Math.floor(
+              exercisesAfterWarmup / totalExercisesPerCircuit
+            );
+            const circuitNumber = circuitIndex + 1; // Circuits are 1-indexed
+
+            // Calculate which set (repetition) and exercise within the set
+            const exercisesIntoCircuit =
+              exercisesAfterWarmup % totalExercisesPerCircuit;
+            const setIndex = Math.floor(
+              exercisesIntoCircuit / exercisesPerCircuit
+            );
+            const setNumber = setIndex + 1; // Sets are 1-indexed
+            const exerciseNumberInSet =
+              (exercisesIntoCircuit % exercisesPerCircuit) + 1; // Exercise within set is 1-indexed
+
+            return {
+              circuitNumber,
+              setNumber,
+              exerciseNumberInSet,
+              isWarmup: false,
+            };
+          };
+
+          const circuitInfo = getCircuitInfo(index);
+
+          return (
+            <View key={index} style={styles.exerciseCard}>
+              <View style={styles.exerciseHeader}>
+                <Text style={styles.exerciseNumber}>{exercise.order}</Text>
+                <View style={styles.exerciseInfo}>
+                  <Text style={styles.exerciseName}>{exercise.name}</Text>
+                  <Text style={styles.exerciseCategory}>
+                    {exercise.category}
+                  </Text>
+                  {circuitInfo && (
+                    <Text style={styles.circuitLabel}>
+                      {circuitInfo.isWarmup
+                        ? "Warmup"
+                        : `Circuit ${circuitInfo.circuitNumber}, Set ${circuitInfo.setNumber}, Exercise ${circuitInfo.exerciseNumberInSet}`}
+                    </Text>
+                  )}
+                </View>
               </View>
-            </View>
-            {exercise.description && (
-              <Text style={styles.exerciseDescription}>
-                {exercise.description}
-              </Text>
-            )}
-            <View style={styles.exerciseTags}>
-              <View style={styles.tag}>
-                <Text style={styles.tagText}>
-                  {exercise.equipment || "none"}
+              {exercise.description && (
+                <Text style={styles.exerciseDescription}>
+                  {exercise.description}
                 </Text>
+              )}
+              <View style={styles.exerciseTags}>
+                <View style={styles.tag}>
+                  <Text style={styles.tagText}>
+                    {exercise.equipment || "none"}
+                  </Text>
+                </View>
               </View>
             </View>
-          </View>
-        ))}
+          );
+        })}
       </View>
 
       <TouchableOpacity
@@ -158,6 +218,12 @@ const styles = StyleSheet.create({
     color: "#666",
     marginTop: 2,
     textTransform: "capitalize",
+  },
+  circuitLabel: {
+    fontSize: 14,
+    color: "#2196F3",
+    fontWeight: "600",
+    marginTop: 4,
   },
   exerciseDuration: {
     fontSize: 16,

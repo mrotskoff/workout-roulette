@@ -15,7 +15,7 @@ import {
 } from "react-native-safe-area-context";
 import { useAudioPlayer } from "expo-audio";
 import { Asset } from "expo-asset";
-import { activateKeepAwake, deactivateKeepAwake } from "expo-keep-awake";
+import { activateKeepAwakeAsync, deactivateKeepAwake } from "expo-keep-awake";
 
 const WorkoutExecutionScreen = ({ route, navigation }) => {
   const { workout } = route.params;
@@ -43,6 +43,52 @@ const WorkoutExecutionScreen = ({ route, navigation }) => {
   const totalExercises = workout.exercises.length;
   const restTimeSeconds = workout.restTimeSeconds || 0;
   const exerciseDurationSeconds = workout.exerciseDurationSeconds || 60;
+
+  // Calculate circuit information for current exercise
+  const getCircuitInfo = (exerciseIndex) => {
+    if (!workout.numCircuits) {
+      return null; // Not a circuit-based workout
+    }
+
+    // First 2 exercises are warmup
+    if (exerciseIndex < 2) {
+      return {
+        circuitNumber: null,
+        setNumber: null,
+        exerciseNumberInSet: null,
+        isWarmup: true,
+      };
+    }
+
+    const exercisesPerCircuit = workout.exercisesPerCircuit || 1;
+    const repetitionsPerCircuit = workout.repetitionsPerCircuit || 1;
+    const totalExercisesPerCircuit =
+      exercisesPerCircuit * repetitionsPerCircuit;
+
+    // Calculate which circuit this exercise belongs to
+    const exercisesAfterWarmup = exerciseIndex - 2;
+    const circuitIndex = Math.floor(
+      exercisesAfterWarmup / totalExercisesPerCircuit
+    );
+    const circuitNumber = circuitIndex + 1; // Circuits are 1-indexed
+
+    // Calculate which set (repetition) and exercise within the set
+    const exercisesIntoCircuit =
+      exercisesAfterWarmup % totalExercisesPerCircuit;
+    const setIndex = Math.floor(exercisesIntoCircuit / exercisesPerCircuit);
+    const setNumber = setIndex + 1; // Sets are 1-indexed
+    const exerciseNumberInSet =
+      (exercisesIntoCircuit % exercisesPerCircuit) + 1; // Exercise within set is 1-indexed
+
+    return {
+      circuitNumber,
+      setNumber,
+      exerciseNumberInSet,
+      isWarmup: false,
+    };
+  };
+
+  const circuitInfo = getCircuitInfo(currentExerciseIndex);
 
   // Load ping sound URI on mount
   useEffect(() => {
@@ -262,11 +308,15 @@ const WorkoutExecutionScreen = ({ route, navigation }) => {
 
   // Keep screen awake during workout
   useEffect(() => {
-    if (workoutStarted && !isComplete) {
-      activateKeepAwake();
-    } else {
-      deactivateKeepAwake();
-    }
+    const updateKeepAwake = async () => {
+      if (workoutStarted && !isComplete) {
+        await activateKeepAwakeAsync();
+      } else {
+        deactivateKeepAwake();
+      }
+    };
+
+    updateKeepAwake();
 
     // Cleanup: deactivate when component unmounts
     return () => {
@@ -439,9 +489,25 @@ const WorkoutExecutionScreen = ({ route, navigation }) => {
         <View style={styles.progressBar}>
           <View style={[styles.progressFill, { width: `${progress}%` }]} />
         </View>
-        <Text style={styles.progressText}>
-          Exercise {currentExerciseIndex + 1} of {totalExercises}
-        </Text>
+        {circuitInfo && circuitInfo.isWarmup ? (
+          <Text style={styles.progressText}>
+            Warmup - Exercise {currentExerciseIndex + 1} of {totalExercises}
+          </Text>
+        ) : circuitInfo && circuitInfo.circuitNumber ? (
+          <View style={styles.progressInfoContainer}>
+            <Text style={styles.progressText}>
+              Circuit {circuitInfo.circuitNumber} • Set {circuitInfo.setNumber}{" "}
+              • Exercise {circuitInfo.exerciseNumberInSet}
+            </Text>
+            <Text style={styles.progressSubtext}>
+              {currentExerciseIndex + 1} of {totalExercises}
+            </Text>
+          </View>
+        ) : (
+          <Text style={styles.progressText}>
+            Exercise {currentExerciseIndex + 1} of {totalExercises}
+          </Text>
+        )}
       </View>
 
       {/* Start Workout Button - Only show at the very beginning */}
@@ -635,9 +701,20 @@ const styles = StyleSheet.create({
     backgroundColor: "#4CAF50",
     borderRadius: 4,
   },
+  progressInfoContainer: {
+    alignItems: "center",
+    marginTop: 0,
+  },
   progressText: {
-    fontSize: 14,
+    fontSize: 16,
+    color: "#333",
+    fontWeight: "600",
+    textAlign: "center",
+  },
+  progressSubtext: {
+    fontSize: 12,
     color: "#666",
+    marginTop: 2,
     textAlign: "center",
   },
   startWorkoutContainer: {
